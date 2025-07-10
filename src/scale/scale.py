@@ -24,9 +24,9 @@ def scrape_price(driver):
     driver.get("https://www.tradingview.com/chart/?symbol=BINANCE:BTCUSDT")
     time.sleep(5)  # Wait for page load
     try:
-        # Update selector based on TradingView's current DOM
-        price_element = driver.find_element(By.CSS_SELECTOR, ".last-JWoJqCpY")
-        price = float(price_element.text.replace(",", ""))
+        price_element = driver.find_element(By.CSS_SELECTOR, ".priceWrapper--RHF2vaY .price--QEpLwlLe")
+        price_text = price_element.text.replace(",", "")  # Remove commas (e.g., "111,210.35" -> "111210.35")
+        price = float(price_text)
         return price
     except Exception as e:
         print(f"Error scraping price: {e}")
