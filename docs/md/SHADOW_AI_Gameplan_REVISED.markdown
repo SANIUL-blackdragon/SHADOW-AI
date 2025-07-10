@@ -39,8 +39,8 @@ The system leverages a comprehensive suite of software optimized for AI developm
   - NumPy for numerical computations (https://numpy.org/).
 - **Web Scraping and Automation**:
   - Scrapy for fast, static web scraping (https://scrapy.org/).
-  - Selenium for dynamic browser automation, critical for the TradingView screen reader (https://www.selenium.dev/).
-  - tradingview-scraper for real-time TradingView data (https://pypi.org/project/tradingview-scraper/).
+  - Selenium for dynamic browser automation, critical for the binance api screen reader (https://www.selenium.dev/).
+  - binance api-scraper for real-time binance api data (https://pypi.org/project/binance api-scraper/).
 - **Sentiment Analysis**:
   - FinBERT for financial text sentiment analysis (https://huggingface.co/ProsusAI/finbert).
 - **API Interaction**:
@@ -81,14 +81,14 @@ SHADOW AI processes two categories of data, each requiring specific collection a
   - Align timestamps with price data for cohesive analysis.
 
 ### Live Data Feeds
-- **Price Data**: Utilize the tradingview-scraper library to extract real-time OHLCV (Open, High, Low, Close, Volume) data from TradingView charts, supporting stocks (e.g., NASDAQ:AAPL) and other instruments.
+- **Price Data**: Utilize the binance api-scraper library to extract real-time OHLCV (Open, High, Low, Close, Volume) data from binance api charts, supporting stocks (e.g., NASDAQ:AAPL) and other instruments.
 - **News Data**: Develop a web scraper using Scrapy with proxy services (e.g., Bright Data, https://brightdata.com/) to fetch live news, bypassing paywalls or geo-restrictions, and process with FinBERT for real-time sentiment scores.
 
 ## Submodule Specifications
 SHADOW AI comprises eight specialized submodules, each with a distinct role in the data-to-decision pipeline:
 
 - **S.C.A.L.E. (Signal Capture & Live Extraction)**  
-  - **Mission**: Real-time screen reading and extraction of price digits and timestamps from TradingView.  
+  - **Mission**: Real-time screen reading and extraction of price digits and timestamps from binance api.  
   - **Task**: Feed clean, timestamp-aligned numeric market data into the AI pipeline.
 
 - **G.R.I.M. (Grounded Repository for Indexed Market-data)**  
@@ -148,7 +148,7 @@ SHADOW AI operates in two distinct modes:
 ## Live Data Integration
 The live data pipeline ensures real-time predictions:
 - **S.C.A.L.E.**:
-  - Use the tradingview-scraper library to fetch real-time OHLCV data from TradingView, configured for stocks (e.g., NASDAQ:SPY).
+  - Use the binance api-scraper library to fetch real-time OHLCV data from binance api, configured for stocks (e.g., NASDAQ:SPY).
   - Stream data every minute, aggregating to daily for model input.
 - **S.P.E.C.T.R.E.**:
   - Implement a Scrapy-based scraper with Bright Data proxies to collect live news from financial websites.
@@ -182,7 +182,7 @@ The development process is structured into ten comprehensive steps:
    - Evaluate and optimize model performance.
 
 5. **Live Data Integration**:
-   - Implement real-time price data extraction from TradingView.
+   - Implement real-time price data extraction from binance api.
    - Set up stealth news scraping with proxies.
 
 6. **Mock Trading Mode**:
@@ -252,10 +252,10 @@ def get_sentiment_scores(texts):
         sentiments.append(sentiment)
     return sentiments
 
-# Live Price Data from TradingView
+# Live Price Data from binance api
 def fetch_live_price():
     driver = webdriver.Chrome()
-    driver.get("https://www.tradingview.com/chart/?symbol=NASDAQ:SPY")
+    driver.get("https://www.binance api.com/chart/?symbol=NASDAQ:SPY")
     time.sleep(5)  # Wait for page load
     price = driver.find_element_by_class_name("price").text
     driver.quit()

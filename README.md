@@ -1,11 +1,11 @@
 SHADOW AI MVP
 An open-source, non-commercial AI-driven trading system for predicting BTC/USD movements using live price data and news sentiment, built for the Notamedia MVP Hackathon 2025.
 Overview
-SHADOW AI (Strategic Heuristic AI for Data-Driven Order Writing) is a prototype trading system that integrates live BTC/USD price data from TradingView and basic news sentiment analysis to generate predictive trade signals (LONG/SHORT). Developed for the Notamedia MVP Hackathon 2025, this project is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0), prohibiting commercial use without explicit permission from SANIUL-blackdragon.
+SHADOW AI (Strategic Heuristic AI for Data-Driven Order Writing) is a prototype trading system that integrates live BTC/USD price data from binance api and basic news sentiment analysis to generate predictive trade signals (LONG/SHORT). Developed for the Notamedia MVP Hackathon 2025, this project is licensed under the Creative Commons Attribution-NonCommercial 4.0 International License (CC BY-NC 4.0), prohibiting commercial use without explicit permission from SANIUL-blackdragon.
 MVP Scope
 The Minimum Viable Product (MVP) includes:
 
-S.C.A.L.E.: Extracts live BTC/USD prices from TradingView using Selenium.
+S.C.A.L.E.: Extracts live BTC/USD prices from binance api using Selenium.
 G.R.I.M.: Manages historical price data in CSV or SQLite.
 S.P.E.C.T.R.E. (Simplified): Fetches Bitcoin news via NewsAPI.
 F.L.A.R.E.: Performs basic sentiment analysis using FinBERT or dictionary-based methods.

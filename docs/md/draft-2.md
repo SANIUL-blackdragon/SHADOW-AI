@@ -1,103 +1,56 @@
 # What S.C.A.L.E. Does in SHADOW AI
 
-S.C.A.L.E. (Signal Capture & Live Extraction) is a critical submodule of the SHADOW AI system, designed to serve as the real-time data acquisition engine. It is responsible for capturing live market data from TradingView charts and delivering it to the SHADOW AI backend for further processing. Below is a detailed breakdown of its purpose, functionality, and operational mechanics.
+S.C.A.L.E. (Signal Capture & Live Extraction) is a critical submodule of the SHADOW AI system, designed to serve as the real-time data acquisition engine. **It captures live market data directly from the Binance API and delivers it to the SHADOW AI system for further processing, while providing live visualization of price data through a terminal-based interface, displaying trends from all historical and live data in a unified 1-second framework.** Below is a detailed breakdown of its purpose, functionality, and operational mechanics.
 
 ---
 
 ## Purpose
-S.C.A.L.E. acts as the "eyes" of SHADOW AI, providing a continuous stream of live price data for a single selected asset (e.g., stocks, indices, forex, commodities) from TradingView. Its primary mission is to extract price information and timestamps in real-time, ensuring the system has up-to-date market signals to drive predictions and trading decisions.
+S.C.A.L.E. acts as the "eyes" of SHADOW AI, providing a continuous stream of live price data for a single selected asset (e.g., BINANCE:BTCUSDT) from the Binance API. Its primary mission is to extract price information and timestamps in real-time, ensuring the system has up-to-date market signals to drive predictions and trading decisions. **Additionally, it visualizes live and historical price data to aid monitoring and debugging, presenting trends in a 1-second time framework without interpolating missing timestamps, ensuring gaps (e.g., due to network delays or API errors) are preserved as discontinuities in the visualization.**
 
 ---
 
-## Two-Part Architecture
-S.C.A.L.E. is split into two integrated components: a **frontend** (Browser Extension) and a **backend** (FastAPI Server). Together, they form a seamless pipeline for data capture and delivery.
+## Architecture
+**S.C.A.L.E. is a single Python-based component that directly queries the Binance API (`/api/v3/ticker/price`) every 1 second, integrating data capture, logging, and visualization into a streamlined pipeline. It eliminates the need for browser extensions or external servers, relying solely on Python libraries for efficiency and simplicity.**
 
-### 1. Frontend: Brave Browser Extension
-- **Platform**: Built for the Brave browser, chosen for its Chromium-based architecture, privacy focus, lightweight performance, and free availability.
-- **Function**: Scrapes live data directly from the TradingView DOM (Document Object Model) every 5 seconds.
+### Functionality
+- **Platform**: Built in Python 3.x, using the `requests` library to query the Binance API for real-time price data, `sqlite3` for structured storage, `pandas` for data handling, and `matplotlib` for visualization, all optimized for consumer hardware (16 GB RAM, no GPU).
 - **Key Features**:
-  - **Data Extraction**: Captures the current price of the selected asset (e.g., NASDAQ:AAPL, SP:SPX, BINANCE:BTCUSDT) from the TradingView chart.
-  - **Minimal UI**: On first use, prompts the user for the FastAPI server URL (e.g., `http://localhost:8000`). No additional UX elements—just a single input field and a "Connect" button.
-  - **One-Way Communication**: Sends scraped data to the backend via POST requests without expecting responses, keeping it simple and efficient.
-  - **Error Handling**: If the backend is unreachable or disconnected, it triggers:
-    - A **loud buzzing alert** (e.g., an audio loop).
-    - A **big red overlay** in the extension UI with a warning (e.g., "SERVER DOWN").
-  - **DOM Change Detection**: If TradingView’s DOM structure changes (e.g., price class is missing), it raises a **red alert** with a loud sound to notify the user immediately.
-- **Data Format**: Sends JSON payloads like:
-  ```json
-  {
-    "ticker": "NASDAQ:AAPL",
-    "price": 193.02,
-    "timestamp": "2025-07-07T18:25:43Z",
-    "source": "tradingview",
-    "client_id": "scale-extension-v1"
-  }
-  ```
-- **Timezone**: Default is UTC+0, but users can customize it via configuration.
-
-### 2. Backend: FastAPI Server
-- **Function**: Receives data from the extension, logs it, and makes it available for the broader SHADOW AI system.
-- **Key Features**:
-  - **Endpoints**:
-    - **POST /data**: Accepts JSON data from the extension and logs it.
-    - **GET /status**: Returns `{"status": "online"}` to confirm the server is operational (used by the extension to verify connectivity).
-  - **Logging**: Stores all incoming data in a dual-format system:
-    - **SQLite**: Daily `.db` files (e.g., `20250709.db`) with a `trades` table for structured querying.
-    - **CSV**: Daily `.csv` files (e.g., `20250709.csv`) for human-readable backups.
+  - **Data Extraction**: Captures the current price of the selected asset (e.g., BINANCE:BTCUSDT) every 1 second, along with UTC timestamps, using the Binance API endpoint `/api/v3/ticker/price` (weight: 2, well within the 6,000 weight/minute limit).
+  - **Logging**: Stores all incoming data in a triple-format system:
+    - **SQLite**: Daily `.db` files (e.g., `20250711.db`) with a `trades` table (`timestamp TEXT, price REAL`) for structured querying, enabling efficient analysis by downstream modules like PHANTOM.
+    - **CSV**: Daily `.csv` files (e.g., `20250711.csv`) with `timestamp,price` columns for human-readable backups, suitable for manual inspection or external tools.
+    - **TXT**: Daily `.txt` files (e.g., `20250711.txt`) with JSON lines for compatibility with other SHADOW AI submodules (e.g., G.R.I.M. for indexing), formatted as `{"ticker": "BINANCE:BTCUSDT", "timestamp": "2025-07-10T19:04:08Z", "price": 113551.35}`.
     - **Folder Structure**:
       ```
-      /logs
+      /data/scale
        ├── 202507/
        │   ├── csv/
-       │   │   └── 20250709.csv
-       │   └── sqlite/
-       │       └── 20250709.db
+       │   │   └── 20250711.csv
+       │   ├── sqlite/
+       │   │   └── 20250711.db
+       │   └── txt/
+       │       └── 20250711.txt
        ├── 202508/
        │   ├── csv/
        │   │   └── 20250801.csv
-       │   └── sqlite/
-       │       └── 20250801.db
+       │   ├── sqlite/
+       │   │   └── 20250801.db
+       │   └── txt/
+       │       └── 20250801.txt
       ```
-  - **Command-Line Interface (CUI)**: Provides a terminal-based status monitor (no GUI), showing server health and recent data logs.
-  - **Data Integrity**: Captures all data, including gaps, based on timestamps from the chart. If SHADOW AI detects missing data, S.C.A.L.E. ensures it’s scraped and logged retroactively when possible.
-  - **No Security Overhead**: No API keys or authentication—designed for personal use with one-way data flow.
-
----
-
-## Operational Mechanics
-1. **Startup**:
-   - The user opens the Brave extension, enters the FastAPI server URL (e.g., `http://localhost:8000`), and connects.
-   - If the server isn’t reachable, the extension refuses to proceed, displaying a red alert and buzzing loudly.
-
-2. **Data Capture**:
-   - Every 5 seconds, the extension scrapes the TradingView DOM for the current price of the selected asset.
-   - It packages the price with a timestamp (default UTC+0) and the ticker (derived from the chart or URL).
-
-3. **Data Transmission**:
-   - The extension sends a POST request to the backend’s `/data` endpoint with the JSON payload.
-   - If the request fails (e.g., server down), it triggers the loud red alert.
-
-4. **Backend Processing**:
-   - The FastAPI server receives the data, logs it to both SQLite and CSV files, and keeps it accessible for SHADOW AI’s other submodules (e.g., PHANTOM for predictions).
-   - The server runs silently, with a CUI displaying logs and status updates.
-
-5. **Error Scenarios**:
-   - **DOM Failure**: If the price isn’t found (e.g., class changes), the extension flags it with a red alert and sound.
-   - **Server Failure**: If the backend is offline, the extension notifies the user immediately.
-
----
-
-## What S.C.A.L.E. Does Not Do
-- **Multi-Asset Tracking**: Focuses on a single asset at a time—no multi-chart support.
-- **Prediction**: It only captures data, leaving analysis to PHANTOM.
-- **User Validation**: No ticker checks or security layers—it trusts the operator (you).
-- **Compression**: Logs remain uncompressed for instant AI access.
-
----
-
-## Summary
-S.C.A.L.E. is a lean, mean, data-scraping machine built for one purpose: to extract live price data from TradingView with ruthless efficiency and reliability. It uses a Brave extension to scrape the DOM every 5 seconds, sends it to a FastAPI server for logging, and screams bloody murder if anything goes wrong. It’s a personal tool—no frills, no compromises—just the raw data feed SHADOW AI needs to make money and shut up.
-
-This concludes the full definition of S.C.A.L.E.’s role and functionality within SHADOW AI.
-
---- 
+  - **Command-Line Interface (CUI)**: Provides a terminal-based status monitor (no GUI), displaying:
+    - **Real-Time Logs**: Prints fetched prices (e.g., `Fetched price: 113551.35 at 2025-07-10T19:04:08Z`) and save confirmations (e.g., `Saved data: {"ticker": "BINANCE:BTCUSDT", "timestamp": ..., "price": 113551.35}`).
+    - **Live Visualization**: A live-updating plot using `matplotlib`, showing prices from all CSV files in `/data/scale` and its subfolders (e.g., `202507/csv/20250710.csv`, `20250711.csv`). The plot uses a 1-second time framework, with timestamps (HH:MM:SS) on the x-axis and prices (USDT) on the y-axis. Gaps in timestamps (e.g., 8-second or 39-second skips due to network delays) are preserved as discontinuities, with no interpolation or stitching. The plot updates every second, limited to the last 100 data points for performance, and uses a green line (`#4CAF50`) for visibility.
+  - **Data Integrity**: Captures all data, including gaps, based on API responses. If gaps are detected (e.g., missing seconds due to network latency), S.C.A.L.E. logs them as-is without filling. **For historical gaps, it can fetch data retroactively using the Binance API `/api/v3/klines` endpoint (1-minute candles) when instructed by SHADOW AI, ensuring completeness for backtesting by G.R.I.M. or PHANTOM.**
+  - **Error Handling**: Implements robust error handling for API failures:
+    - Retries up to 3 times with a 2-second delay if the API is unreachable or returns errors (e.g., rate limits, HTTP 429).
+    - Logs errors to the console (e.g., `API error on attempt 2: Too Many Requests`) without interrupting the main loop.
+    - If visualization fails (e.g., due to file access issues), logs the error (e.g., `Error reading new data from 20250711.csv: Permission denied`) without stopping data capture.
+  - **No Security Overhead**: Uses public Binance API endpoints without API keys or authentication, designed for personal use with minimal setup.
+- **Data Format**: Stores data in the following JSON structure for TXT files, with CSV and SQLite using `timestamp,price`:
+  ```json
+  {
+    "ticker": "BINANCE:BTCUSDT",
+    "price": 113551.35,
+    "timestamp": "2025-07-10T19:04:08Z"
+  }

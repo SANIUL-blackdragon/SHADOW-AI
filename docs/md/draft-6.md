@@ -15,7 +15,7 @@ P.H.A.N.T.O.M. relies on two primary data streams: chart-based price data and ne
 Price Data
 
 Live Data (via S.C.A.L.E.):
-Source: TradingView charts, extracted via Selenium-based screen reading.
+Source: binance api charts, extracted via Selenium-based screen reading.
 Resolution: 1-second timeframe.
 Content: Open, high, low, close (OHLC), volume, timestamps.
 

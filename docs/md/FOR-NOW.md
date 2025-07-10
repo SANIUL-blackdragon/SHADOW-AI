@@ -31,7 +31,7 @@ Examples of Acceptable MVPs: Productivity AI assistants, AI-enhanced tools, brow
 SHADOW AI (Strategic Heuristic AI for Data-Driven Order Writing) is an advanced trading system designed to generate predictive trade signals by integrating price data and news sentiment. For the hackathon, the MVP will focus on a subset of its full capabilities to ensure feasibility within the 10-day timeline.
 Submodules Included in MVP
 
-S.C.A.L.E. (Signal Capture & Live Extraction): Captures live price data (e.g., BTC/USD) from TradingView.
+S.C.A.L.E. (Signal Capture & Live Extraction): Captures live price data (e.g., BTC/USD) from binance api.
 G.R.I.M. (Grounded Repository for Indexed Market-data): Stores and manages historical price data.
 F.L.A.R.E. (Filtered Linguistic Analysis & Reaction Engine): Analyzes news text to produce sentiment scores. But use a lite model of S.P.E.C.T.R.E. for F.L.A.R.E. to work.
 P.H.A.N.T.O.M. (Predictive Heuristic AI for Navigating Trades & Order Management): Core predictive model generating trade signals.
@@ -47,7 +47,7 @@ B.L.A.D.E.: Binary compilation is unnecessary for the MVP; a Python-based protot
 Functional Scope
 The MVP will showcase SHADOW AI’s ability to:
 
-Extract live BTC/USD price data from TradingView.
+Extract live BTC/USD price data from binance api.
 Store and process historical price data.
 Perform basic sentiment analysis on news text.
 Generate trade predictions using a machine learning model.
@@ -85,7 +85,7 @@ Initialize GitHub repository, set up project structure, and create CLI.
 
 
 2
-Develop S.C.A.L.E. to extract BTC/USD live data from TradingView.
+Develop S.C.A.L.E. to extract BTC/USD live data from binance api.
 
 
 3

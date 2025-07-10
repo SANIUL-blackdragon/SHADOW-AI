@@ -30,3 +30,5 @@ logs/
 *.db
 *.sqlite3
 .env  # For sensitive keys (e.g., NewsAPI key)
+sqlite/
+data/

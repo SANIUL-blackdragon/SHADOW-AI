@@ -272,7 +272,7 @@ Now here’s the stripped-down, high-impact battle plan:
 ⚙️ SHADOW Hackathon MVP Scope (10-Day Build)
 ✅ MUST-HAVE CORE SUBMODULES (TO WIN)
 Submodule	Include?	Reason
-S.C.A.L.E.	✅ Yes	Needed to grab live price feed from TradingView (even if basic + hardcoded pair like BTC/USD)
+S.C.A.L.E.	✅ Yes	Needed to grab live price feed from binance api (even if basic + hardcoded pair like BTC/USD)
 G.R.I.M.	✅ Yes	Load & structure historical data (CSV/SQLite) — required for training
 F.L.A.R.E.	✅ Yes	Critical to show real-world understanding from news (at least one news source + basic FinBERT)
 P.H.A.N.T.O.M.	✅ Yes	The core model. This MUST be working to do any prediction
@@ -287,7 +287,7 @@ B.L.A.D.E.	❌ Not now	You don’t need to compile into .bin for MVP. Judges car
 🔨 Deliverables to Build
 🛠️ What You Will Actually Build:
 Deliverable	Tool/Tech
-Price scraper from TradingView	Python + Selenium or simple screen-capture OCR
+Price scraper from binance api	Python + Selenium or simple screen-capture OCR
 Simple CSV database (GRIM)	pandas + daily logs
 Basic FinBERT-based or dictionary-based news sentiment	HuggingFace + fine-tuned or pretrained
 Model (PHANTOM)	LSTM or Transformer, TensorFlow (CPU)
@@ -299,7 +299,7 @@ GitHub Repo	Code, README.md, setup instructions
 ⏰ 10-Day Timeline
 Day	Goal
 Day 1	Setup GitHub, data structure folders, basic CLI
-Day 2	Build S.C.A.L.E. to grab BTC/USD from TradingView
+Day 2	Build S.C.A.L.E. to grab BTC/USD from binance api
 Day 3	Load historical data into GRIM, process to model format
 Day 4-5	Implement PHANTOM v1 — basic LSTM or transformer + train
 Day 6	Plug in basic news sentiment pipeline (FLARE)

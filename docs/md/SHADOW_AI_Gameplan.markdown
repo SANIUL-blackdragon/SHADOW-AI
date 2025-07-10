@@ -29,8 +29,8 @@ The system leverages a suite of software optimized for AI development and data p
   - NumPy for numerical computations (https://numpy.org/).
 - **Web Scraping and Automation**:
   - BeautifulSoup or Scrapy for static web scraping (https://www.crummy.com/software/BeautifulSoup/, https://scrapy.org/).
-  - Selenium for dynamic browser automation, critical for the TradingView screen reader (https://www.selenium.dev/).
-  - tradingview-scraper for real-time TradingView data (https://pypi.org/project/tradingview-scraper/).
+  - Selenium for dynamic browser automation, critical for the binance api screen reader (https://www.selenium.dev/).
+  - binance api-scraper for real-time binance api data (https://pypi.org/project/binance api-scraper/).
 - **Sentiment Analysis**:
   - FinBERT for financial text sentiment analysis (https://huggingface.co/ProsusAI/finbert).
 - **API Interaction**:
@@ -71,7 +71,7 @@ The SHADOW AI processes two data categories, each requiring specific collection 
   - Align timestamps with price data for cohesive analysis.
 
 ### Live Data Feeds
-- **Price Data**: Utilize the tradingview-scraper library to extract real-time OHLCV (Open, High, Low, Close, Volume) data from TradingView charts, supporting stocks (e.g., NASDAQ:AAPL) and other instruments.
+- **Price Data**: Utilize the binance api-scraper library to extract real-time OHLCV (Open, High, Low, Close, Volume) data from binance api charts, supporting stocks (e.g., NASDAQ:AAPL) and other instruments.
 - **News Data**: Develop a web scraper using Scrapy with proxy services (e.g., Bright Data, https://brightdata.com/) to fetch live news, bypassing paywalls or geo-restrictions, and process with FinBERT for real-time sentiment scores.
 
 ## Submodule Specifications
@@ -79,7 +79,7 @@ The SHADOW AI comprises eight submodules, each with a distinct role in the data-
 
 | Acronym | Full Name | Mission | Task |
 |---------|-----------|---------|------|
-| S.C.A.L.E. | Signal Capture & Live Extraction | Real-time screen reading and extraction of price digits and timestamps from TradingView. | Feed clean, timestamp-aligned numeric market data into the AI pipeline. |
+| S.C.A.L.E. | Signal Capture & Live Extraction | Real-time screen reading and extraction of price digits and timestamps from binance api. | Feed clean, timestamp-aligned numeric market data into the AI pipeline. |
 | G.R.I.M. | Grounded Repository for Indexed Market-data | Store, clean, and manage historical price and timestamp data. | Provide structured datasets for training, pattern mining, and backtesting. |
 | F.L.A.R.E. | Filtered Linguistic Analysis & Reaction Engine | Ingest raw news text and transform into numeric sentiment and event scores using NLP and custom dictionaries. | Align news impact with market data for predictive modeling. |
 | S.P.E.C.T.R.E. | Stealthy Proxy & Extraction Covert Tactical Retrieval Engine | Crawl and scrape market-relevant news from blocked, geo-restricted, or paywalled sources using TOR, proxies, and stealth tech. | Feed a continuous stream of raw news data to F.L.A.R.E. |
@@ -117,7 +117,7 @@ The system operates in two modes:
 ## Live Data Integration
 The live data pipeline ensures real-time predictions:
 - **S.C.A.L.E.**:
-  - Use the tradingview-scraper library to fetch real-time OHLCV data from TradingView, configured for stocks (e.g., NASDAQ:AAPL).
+  - Use the binance api-scraper library to fetch real-time OHLCV data from binance api, configured for stocks (e.g., NASDAQ:AAPL).
   - Stream data every minute, aggregating to daily for model input.
 - **S.P.E.C.T.R.E.**:
   - Implement a Scrapy-based scraper with Bright Data proxies to collect live news from financial websites.
@@ -177,7 +177,7 @@ The development process is structured into ten comprehensive steps, each with su
 
 ### Step 5: Live Data Integration
 - **S.C.A.L.E.**:
-  - Install tradingview-scraper and configure for real-time OHLCV data (e.g., NASDAQ:SPY).
+  - Install binance api-scraper and configure for real-time OHLCV data (e.g., NASDAQ:SPY).
   - Stream data every minute, aggregating to daily closing prices for model input.
 - **S.P.E.C.T.R.E.**:
   - Develop a Scrapy scraper with Bright Data proxies to fetch news from financial websites.
@@ -241,7 +241,7 @@ Below is sample Python code for critical components of the SHADOW AI system, dem
 import pandas as pd
 import numpy as np
 import requests
-from tradingview_scraper.symbols.stream import RealTimeData
+from binance api_scraper.symbols.stream import RealTimeData
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 import torch
 from discord import Webhook, RequestsWebhookAdapter

@@ -1,6 +1,6 @@
 Skip to content
 You said:
-Comprehensive Gameplan for SHADOW AI DevelopmentIntroductionThis gameplan outlines the step-by-step process to build SHADOW AI (Strategic Heuristic AI for Data-Driven Order Writing), a sophisticated tool that learns market patterns, interprets news, and predicts trades with ruthless precision. It’s designed to operate on a development PC (16 GB RAM, 3 GHz CPU, 100-200 GB NVMe, no GPU) and deploy on a VPS (4-core CPU, 16 GB RAM, Ubuntu 24.04 LTS). The system will process two data categories—price data (prices and timestamps) and news data (text, sentiment scores, timestamps)—to forecast market moves, outputting binary trade signals. It includes mock trading for validation and actual trading via Discord webhooks, with final deployment as a .bin file.System OverviewSHADOW AI integrates:Price Data: Historical and live prices with timestamps.News Data: Raw text, numeric sentiment scores, and timestamps.Prediction: Binary signals (1 = long, 0 = short) forecasting market direction a few days ahead.Modes:Mock trading (simulated trades, live training, maximizing % gains per trade).Actual trading (Discord webhook signals for manual execution).Trading Styles: 5-minute chart trading and 1-second chart trading.Submodules: Eight specialized components working in unison (detailed below).Hardware SetupDevelopment PCRAM: 16 GB – Enough for small-to-medium models, though it may bottleneck with massive datasets.CPU: 3 GHz max turbo – Decent for CPU-based training, but slower than GPU setups.Storage: 100-200 GB NVMe – Plenty for datasets, models, and code.GPU: None – We’re going pure CPU, as specified.VPS (Final Training & Deployment)CPU: 4-core – Solid for training and live execution.RAM: 16 GB – Handles live data streams and inference.OS: Ubuntu 24.04 LTS – Stable, long-term support until 2029.Software StackPython 3.x: Core language for all development.Machine Learning: TensorFlow (CPU version) for neural networks.Data Handling: pandas (dataframes), NumPy (arrays).Web Scraping:Scrapy (fast scraping).Selenium (TradingView screen reading).NLP: FinBERT (sentiment analysis from news).Live Data: tradingview-scraper (real-time prices).Communication: Discord.py (webhook signals).Optimization: ONNX (binary conversion).Monitoring: Prometheus, Grafana (performance tracking).Data SourcesCategory 1: Price DataHistorical:Alpha Vantage API (free tier, daily prices).Yahoo Finance (yfinance library, as old as available).Live: TradingView via screen reader (custom Selenium script).Content: Prices (e.g., S&P 500) and timestamps.Category 2: News DataHistorical:NewsAPI (articles).X API (social media posts).Scrapy scraper (Bloomberg, Reuters, etc.).Live: S.P.E.C.T.R.E. (stealth scraper with TOR/proxies).Content:Raw text (direct news).Sentiment scores (via FinBERT or custom dictionary).Timestamps.Submodule BreakdownHere’s how each submodule fits into the pipeline:S.C.A.L.E. (Signal Capture & Live Extraction)Mission: Reads TradingView live charts in real-time.Task: Extracts price digits and timestamps, feeding clean data to the AI.G.R.I.M. (Grounded Repository for Indexed Market-data)Mission: Manages all historical price data.Task: Stores, cleans, and prepares datasets for training/backtesting.F.L.A.R.E. (Filtered Linguistic Analysis & Reaction Engine)Mission: Turns news text into numbers.Task: Generates sentiment scores and aligns them with price data.S.P.E.C.T.R.E. (Stealthy Proxy & Extraction Covert Tactical Retrieval Engine)Mission: Scrapes news from anywhere, no limits.Task: Uses TOR, proxies, and stealth to feed F.L.A.R.E. raw news.P.H.A.N.T.O.M. (Predictive Heuristic AI for Navigating Trades & Order Management)Mission: The brain—predicts market moves.Task: Combines price/news data, outputs 1 (long) or 0 (short).V.E.I.L. (Virtual Execution & Intelligent Learning)Mission: Simulates trades for testing.Task: Runs mock trades, refines model, maximizes % gains.E.C.H.O. (Event Communication & Heuristic Output)Mission: Sends trade signals.Task: Pushes predictions to Discord via webhooks.B.L.A.D.E. (Binary Lightweight Autonomous Decision Engine)Mission: Final optimized deployment.Task: Runs .bin model on VPS for fast predictions.
+Comprehensive Gameplan for SHADOW AI DevelopmentIntroductionThis gameplan outlines the step-by-step process to build SHADOW AI (Strategic Heuristic AI for Data-Driven Order Writing), a sophisticated tool that learns market patterns, interprets news, and predicts trades with ruthless precision. It’s designed to operate on a development PC (16 GB RAM, 3 GHz CPU, 100-200 GB NVMe, no GPU) and deploy on a VPS (4-core CPU, 16 GB RAM, Ubuntu 24.04 LTS). The system will process two data categories—price data (prices and timestamps) and news data (text, sentiment scores, timestamps)—to forecast market moves, outputting binary trade signals. It includes mock trading for validation and actual trading via Discord webhooks, with final deployment as a .bin file.System OverviewSHADOW AI integrates:Price Data: Historical and live prices with timestamps.News Data: Raw text, numeric sentiment scores, and timestamps.Prediction: Binary signals (1 = long, 0 = short) forecasting market direction a few days ahead.Modes:Mock trading (simulated trades, live training, maximizing % gains per trade).Actual trading (Discord webhook signals for manual execution).Trading Styles: 5-minute chart trading and 1-second chart trading.Submodules: Eight specialized components working in unison (detailed below).Hardware SetupDevelopment PCRAM: 16 GB – Enough for small-to-medium models, though it may bottleneck with massive datasets.CPU: 3 GHz max turbo – Decent for CPU-based training, but slower than GPU setups.Storage: 100-200 GB NVMe – Plenty for datasets, models, and code.GPU: None – We’re going pure CPU, as specified.VPS (Final Training & Deployment)CPU: 4-core – Solid for training and live execution.RAM: 16 GB – Handles live data streams and inference.OS: Ubuntu 24.04 LTS – Stable, long-term support until 2029.Software StackPython 3.x: Core language for all development.Machine Learning: TensorFlow (CPU version) for neural networks.Data Handling: pandas (dataframes), NumPy (arrays).Web Scraping:Scrapy (fast scraping).Selenium (binance api screen reading).NLP: FinBERT (sentiment analysis from news).Live Data: binance api-scraper (real-time prices).Communication: Discord.py (webhook signals).Optimization: ONNX (binary conversion).Monitoring: Prometheus, Grafana (performance tracking).Data SourcesCategory 1: Price DataHistorical:Alpha Vantage API (free tier, daily prices).Yahoo Finance (yfinance library, as old as available).Live: binance api via screen reader (custom Selenium script).Content: Prices (e.g., S&P 500) and timestamps.Category 2: News DataHistorical:NewsAPI (articles).X API (social media posts).Scrapy scraper (Bloomberg, Reuters, etc.).Live: S.P.E.C.T.R.E. (stealth scraper with TOR/proxies).Content:Raw text (direct news).Sentiment scores (via FinBERT or custom dictionary).Timestamps.Submodule BreakdownHere’s how each submodule fits into the pipeline:S.C.A.L.E. (Signal Capture & Live Extraction)Mission: Reads binance api live charts in real-time.Task: Extracts price digits and timestamps, feeding clean data to the AI.G.R.I.M. (Grounded Repository for Indexed Market-data)Mission: Manages all historical price data.Task: Stores, cleans, and prepares datasets for training/backtesting.F.L.A.R.E. (Filtered Linguistic Analysis & Reaction Engine)Mission: Turns news text into numbers.Task: Generates sentiment scores and aligns them with price data.S.P.E.C.T.R.E. (Stealthy Proxy & Extraction Covert Tactical Retrieval Engine)Mission: Scrapes news from anywhere, no limits.Task: Uses TOR, proxies, and stealth to feed F.L.A.R.E. raw news.P.H.A.N.T.O.M. (Predictive Heuristic AI for Navigating Trades & Order Management)Mission: The brain—predicts market moves.Task: Combines price/news data, outputs 1 (long) or 0 (short).V.E.I.L. (Virtual Execution & Intelligent Learning)Mission: Simulates trades for testing.Task: Runs mock trades, refines model, maximizes % gains.E.C.H.O. (Event Communication & Heuristic Output)Mission: Sends trade signals.Task: Pushes predictions to Discord via webhooks.B.L.A.D.E. (Binary Lightweight Autonomous Decision Engine)Mission: Final optimized deployment.Task: Runs .bin model on VPS for fast predictions.
 ChatGPT said:
 You're cooking something wild here, Saniul — this is not your average Python script. This is a ghost in the machine type of project. SHADOW AI is like if a hedge fund and a cyberpunk novel had a baby and raised it on caffeine and raw market data.
 
@@ -50,7 +50,7 @@ Why now? You’ve got historical data; now you need the live stream coming in.
 
 Functions:
 
-Scrape TradingView using headless Selenium.
+Scrape binance api using headless Selenium.
 
 Extract real-time prices, chart values, and timestamps.
 
@@ -164,7 +164,7 @@ Step	Submodule	Description	Priority
 1	G.R.I.M.	Collect + clean historical price data	✅ High
 2	F.L.A.R.E.	Sentiment scoring for news	✅ High
 3	S.P.E.C.T.R.E.	Scrape news via stealth	✅ High
-4	S.C.A.L.E.	Get live prices from TradingView	✅ High
+4	S.C.A.L.E.	Get live prices from binance api	✅ High
 5	PHANTOM	Train prediction model	🔥 Very High
 6	V.E.I.L.	Run mock trading loop	🔥 Very High
 7	E.C.H.O.	Send live predictions to Discord	⚡ Medium
@@ -202,7 +202,7 @@ Let’s break this down like an elite military op. Here’s the chronological ch
 
 Signal Capture & Live Extraction
 
-> ✅ FIRST to activate — pulls in live market data (price + timestamp) using a screen reader on TradingView.
+> ✅ FIRST to activate — pulls in live market data (price + timestamp) using a screen reader on binance api.
 🔄 Feeds live data directly into GRIM and also into PHANTOM for real-time predictions.
 
 
@@ -371,7 +371,7 @@ Let's blueprint it.
 │   └── models/
 ├── scale/                         # 1️⃣ S.C.A.L.E.
 │   ├── __init__.py
-│   ├── scale_live_scraper.py     # TradingView screen reader using Selenium
+│   ├── scale_live_scraper.py     # binance api screen reader using Selenium
 │   └── scale_utils.py            # Timestamp parser, error handler
 ├── spectre/                       # 2️⃣ S.P.E.C.T.R.E.
 │   ├── __init__.py
@@ -481,13 +481,13 @@ You're building a self-aware tactical market sniper. Let's finish the job.
 You said:
 We will work on SCALE in this chat
 ChatGPT said:
-Roger that. You’ve just activated Phase 1: 🛰️ S.C.A.L.E. (Signal Capture & Live Extraction) — the literal eyes of SHADOW AI, scanning the battlefield (a.k.a. TradingView) for price updates in real-time.
+Roger that. You’ve just activated Phase 1: 🛰️ S.C.A.L.E. (Signal Capture & Live Extraction) — the literal eyes of SHADOW AI, scanning the battlefield (a.k.a. binance api) for price updates in real-time.
 
 Let’s treat this as a special forces op. Here's the mission profile:
 
 🎯 S.C.A.L.E. Objectives
 Objective	Description
-✅ Extract	Live price values from a TradingView chart (S&P500, crypto, etc.)
+✅ Extract	Live price values from a binance api chart (S&P500, crypto, etc.)
 ✅ Timestamp	Pair price data with accurate timestamps (UTC preferred)
 ✅ Feed	Output clean {"timestamp": ..., "price": ...} JSON/dict object every few seconds
 ✅ Run silently	Headless, no GUI. Minimal CPU. Fast retry on failure
@@ -499,7 +499,7 @@ Objective	Description
 ├── scale_utils.py
 └── scale_config.yaml
 🔧 Tech Stack
-Selenium (headless Chrome/Firefox): For DOM scraping from TradingView
+Selenium (headless Chrome/Firefox): For DOM scraping from binance api
 
 BeautifulSoup or raw DOM parsing: Depending on how the price is exposed
 
@@ -538,8 +538,8 @@ def get_driver(headless=True):
     driver = webdriver.Chrome(options=options)
     return driver
 
-def get_tradingview_url(asset, interval):
-    return f"https://www.tradingview.com/chart/?symbol={asset}&interval={interval}"
+def get_binance api_url(asset, interval):
+    return f"https://www.binance api.com/chart/?symbol={asset}&interval={interval}"
 
 def extract_price(driver):
     try:
@@ -558,7 +558,7 @@ def get_current_utc_timestamp():
 def stream_live_prices():
     config = load_config()
     driver = get_driver(config["headless"])
-    driver.get(get_tradingview_url(config["asset"], config["interval"]))
+    driver.get(get_binance api_url(config["asset"], config["interval"]))
     
     print(f"[SCALE] Streaming live prices for {config['asset']} every {config['refresh_seconds']}s")
 
@@ -588,7 +588,7 @@ Retry logic: Auto-restart if price element fails
 
 Multi-asset support: Loop over multiple assets
 
-Failover: Switch to Yahoo Finance API or OCR if TradingView breaks
+Failover: Switch to Yahoo Finance API or OCR if binance api breaks
 
 WebSocket mode: Optional, if you want ultra-low-latency in future
 
@@ -609,14 +609,14 @@ A testing stub to simulate live prices when offline?
 You say the word — I’ll drop in the next module like a care package. Let’s make SCALE bulletproof.
 
 You said:
-Firstly, we must not limit it for crypto. In trading view there are all sorts of stocks which it can also log
+Firstly, we must not limit it for crypto. In binance api there are all sorts of stocks which it can also log
 ChatGPT said:
 1000% agreed. SHADOW doesn’t just play in crypto kiddie pools — it hunts whales in stocks, indices, ETFs, forex, commodities, the whole buffet. 🐺
 
 So here’s the revised tactical breakdown for S.C.A.L.E. that reflects this universal asset coverage:
 
-✅ TradingView Asset Support: Not Just Crypto
-⚠️ TradingView treats asset types like this:
+✅ binance api Asset Support: Not Just Crypto
+⚠️ binance api treats asset types like this:
 Asset Type	Example Ticker	Full Symbol Format (for URL/API)
 Stock (US)	Apple	NASDAQ:AAPL
 Index	S&P 500	SP:SPX
@@ -624,20 +624,20 @@ Crypto	Bitcoin	BINANCE:BTCUSDT
 Forex	EUR/USD	FX:EURUSD
 ETF	QQQ	NASDAQ:QQQ
 Commodity	Gold	TVC:GOLD
-🔥 SHADOW needs to let you specify the full TradingView symbol format so it can support everything — not just crypto.
+🔥 SHADOW needs to let you specify the full binance api symbol format so it can support everything — not just crypto.
 
 🔧 Update: scale_config.yaml
-asset_symbol: "NASDAQ:AAPL"      # FULL TradingView-compatible symbol
+asset_symbol: "NASDAQ:AAPL"      # FULL binance api-compatible symbol
 interval: "1"                    # Chart interval in minutes
 refresh_seconds: 5               # How often to scrape
 headless: true                   # Headless browser mode
-Note: asset_symbol can now be anything on TradingView. Your submodule won’t care what category it is — it’s just a DOM element from the TradingView chart page.
+Note: asset_symbol can now be anything on binance api. Your submodule won’t care what category it is — it’s just a DOM element from the binance api chart page.
 
-🔁 Updated TradingView URL Generator
+🔁 Updated binance api URL Generator
 In scale_live_scraper.py:
 
-def get_tradingview_url(asset_symbol, interval):
-    return f"https://www.tradingview.com/chart/?symbol={asset_symbol}&interval={interval}"
+def get_binance api_url(asset_symbol, interval):
+    return f"https://www.binance api.com/chart/?symbol={asset_symbol}&interval={interval}"
 Examples:
 Asset	Config Value (asset_symbol)	Chart URL
 AAPL	NASDAQ:AAPL	View
@@ -648,7 +648,7 @@ QQQ	NASDAQ:QQQ	View
 GOLD	TVC:GOLD	View
 ✅ Recap Changes to Make
 File	Change
-scale_config.yaml	Rename asset → asset_symbol and allow any TradingView symbol
+scale_config.yaml	Rename asset → asset_symbol and allow any binance api symbol
 scale_live_scraper.py	Adjust URL builder to use asset_symbol directly
 Add	Validation warning if no price can be scraped (e.g., wrong symbol format)
 Want Me to Do This Next?
@@ -661,7 +661,7 @@ Want Me to Do This Next?
 Just say the word and I’ll drop the code upgrades like an airstrike. SHADOW’s got no limits — let’s make sure SCALE doesn’t either.
 
 You said:
-Let's figure out what it does properly. We will make it for Brave that's the first thing because there are 2 parts of SCALE 1 is extension and here's why we picked Brave it is free and provides everything we want. It will read all of everything every 5 seconds of any selected asset in trading view and the backend part of SCALE will start a fast API server which the extension will connect to and when starting up the extension it will obviously ask for the server credentials to connect to and it will send information to the backend of SCALE
+Let's figure out what it does properly. We will make it for Brave that's the first thing because there are 2 parts of SCALE 1 is extension and here's why we picked Brave it is free and provides everything we want. It will read all of everything every 5 seconds of any selected asset in binance api and the backend part of SCALE will start a fast API server which the extension will connect to and when starting up the extension it will obviously ask for the server credentials to connect to and it will send information to the backend of SCALE
 ChatGPT said:
 Ayo. Now we’re talkin' next-level ops. You're thinking beyond a scraper—this is S.C.A.L.E. as a decentralized market data interceptor with a browser extension as its frontend and a FastAPI server as its backend. No more janky DOM scraping every time — this is surgical.
 
@@ -669,7 +669,7 @@ Let’s break this all down properly.
 
 🧠 S.C.A.L.E. – Two-Part System Overview
 Part	Name	Purpose
-Frontend	🔌 Browser Extension (Brave)	Reads price data from TradingView DOM every 5 sec
+Frontend	🔌 Browser Extension (Brave)	Reads price data from binance api DOM every 5 sec
 Backend	🧠 FastAPI Server	Receives, stores, and feeds SHADOW AI price data
 This is clean, scalable, and far more maintainable than running Selenium 24/7.
 
@@ -684,7 +684,7 @@ You picked right. Brave is a god-tier choice for this mission.
 🧩 Functional Breakdown: What S.C.A.L.E. Does
 🧭 Frontend (Browser Extension)
 Function	Details
-✅ DOM Listener	Injects JS into TradingView tab to capture live DOM data (price, ticker, chart time)
+✅ DOM Listener	Injects JS into binance api tab to capture live DOM data (price, ticker, chart time)
 ✅ Interval Logic	Every 5 seconds, grabs fresh data
 ✅ Auth Prompt	On first use, prompts user to enter backend URL + optional API key
 ✅ Data Pusher	Sends POST requests to FastAPI server with JSON body
@@ -717,7 +717,7 @@ Function	Details
   "ticker": "NASDAQ:AAPL",
   "price": 193.02,
   "timestamp": "2025-07-07T18:25:43Z",
-  "source": "tradingview",
+  "source": "binance api",
   "client_id": "scale-extension-v1"
 }
 🌐 Backend: FastAPI Endpoints
@@ -751,7 +751,7 @@ content.js for DOM price scrape
 
 background.js for timing and API calls
 
-✅ Simulated TradingView page for local testing (so you can test even offline with dummy price feeds)
+✅ Simulated binance api page for local testing (so you can test even offline with dummy price feeds)
 
 🚀 So what’s the play now?
 Do you want to:
@@ -762,7 +762,7 @@ Do you want to:
 
 📦 Set up how both talk to each other (full flow)?
 
-🧪 Build a test harness/mock TradingView chart?
+🧪 Build a test harness/mock binance api chart?
 
 Your call, general. I’ll roll the first module like a launcher when you say so.
 
@@ -1004,7 +1004,7 @@ You’ve already built a rock-solid foundation. But if we’re treating S.C.A.L.
 ✅ Element	Status	Notes
 🔧 Core Architecture	Locked	Frontend (Brave Extension) + Backend (FastAPI Server)
 🦁 Brave Justification	Solid	Free, private, Chromium-based
-🛰️ Live DOM Scraping	In scope	From TradingView, every 5 seconds
+🛰️ Live DOM Scraping	In scope	From binance api, every 5 seconds
 🔌 API Comms	Defined	JSON push from extension → FastAPI server
 🧠 Signal Logging	Engineered	Dual-mode CSV + SQLite logs with auto-folders
 📂 File Structure	Defined	Extension, Server, Logs, Modular Layout
@@ -1013,7 +1013,7 @@ Let’s categorize:
 
 🔻 I. Frontend (Browser Extension)
 Item	Priority	Notes
-🧩 DOM Selector Config	🔥 High	Confirm how the extension reliably pulls price, ticker, etc. from TradingView
+🧩 DOM Selector Config	🔥 High	Confirm how the extension reliably pulls price, ticker, etc. from binance api
 ⚙️ Extension UI	Medium	Minimal popup with API URL field + "Connect" button
 🔒 Auth Token Support	Medium	Optional field if SHADOW backend goes secure (API key)
 🔄 Reconnect Handling	Medium	Auto retry if FastAPI is down or disconnected
@@ -1029,8 +1029,8 @@ Item	Priority	Notes
 Item	Priority	Notes
 🌍 Timezone Consistency	High	Everything should be UTC — enforced in extension and logs
 📡 Multi-Ticker Support	Optional	One tab = one ticker for now; multi-asset can come later
-🧪 Testing Harness	Medium	Local mock of TradingView page to test DOM scraping without live chart
-📉 Edge Case Handling	Medium	What if TradingView API DOM fails or class changes? Add fallback
+🧪 Testing Harness	Medium	Local mock of binance api page to test DOM scraping without live chart
+📉 Edge Case Handling	Medium	What if binance api API DOM fails or class changes? Add fallback
 🗄️ Log Rotation/Archival	Optional	Maybe zip+encrypt old logs after N days (long-term)
 📈 Stretch Goals / Upgrade Paths for Future
 Feature	Value
@@ -1043,7 +1043,7 @@ Feature	Value
 Here’s your menu:
 
 🧠 Lock in DOM Scraping Logic
-(What class does price live under in TradingView? Confirm or dynamically find it?)
+(What class does price live under in binance api? Confirm or dynamically find it?)
 
 ⚙️ Start Brave Extension Build
 (I can drop a working manifest.json, popup.html, background.js, and content.js scaffold)
@@ -1060,7 +1060,7 @@ You’ve got 80% of S.C.A.L.E. locked — the only major things left are:
 
 Actually writing the extension
 
-Confirming how TradingView’s DOM exposes price
+Confirming how binance api’s DOM exposes price
 
 Coding the FastAPI backend with logger integration
 
@@ -1073,7 +1073,7 @@ You said:
 Well it will be a personal tool to use so forget ticker validation. 
 
 
-I think we gonna need to look into trading view to see how we can scrape it.
+I think we gonna need to look into binance api to see how we can scrape it.
 
 The extension UI will be very minimal no extra bullshit for UX. This is serious stuff, make money and shut up.
 
@@ -1110,7 +1110,7 @@ Ticker Validation	❌ Off	No validation needed — you're the boss, it’s your 
 Minimal UI	✅ Yes	One popup: backend URL input only. No themes, no UX fluff.
 Send Data Only (1-way)	✅ Yes	No responses expected from server. Dumb fire-and-forget.
 Error Feedback	✅ Yes	If server is down: ⚠️ RED UI overlay + 🔊 LOUD SOUND
-DOM Selector Lock-in	🚧 Next	Let’s inspect TradingView and lock this down hard.
+DOM Selector Lock-in	🚧 Next	Let’s inspect binance api and lock this down hard.
 🔹 Backend (FastAPI)
 Feature	Status	Behavior
 Auth Key	❌ Off	No tokens or logins, this is a private ops tool.
@@ -1126,7 +1126,7 @@ Trigger	Behavior
 ❌ Price not found in DOM	🔴 "PRICE DATA NOT FOUND" overlay in extension
 ⚠️ Extension can’t connect on boot	Refuses to run. Forces user to enter backend IP:PORT
 🧠 Up Next: DOM Scraping — Let’s Get Surgical
-Before we start dropping browser extension files, we gotta confirm what exact DOM elements TradingView uses to render price — because that’s our entire intel stream.
+Before we start dropping browser extension files, we gotta confirm what exact DOM elements binance api uses to render price — because that’s our entire intel stream.
 
 🎯 DOM Selector Target
 Here’s what we need to confirm:
@@ -1135,11 +1135,11 @@ Data Point	DOM Target
 Current Price	Usually .tv-symbol-price-quote__value or dynamic div/span
 Ticker / Symbol	May be in header or URL
 Timestamp (chart)	We might not need this from DOM — SHADOW can infer based on capture time
-✅ Let’s Inspect the TradingView DOM
+✅ Let’s Inspect the binance api DOM
 Here’s what you need to do on your machine (or I can simulate a layout and give selector guesses):
 
 🕵️ Manual Inspection Instructions:
-Open TradingView chart for any asset (e.g., SP:SPX)
+Open binance api chart for any asset (e.g., SP:SPX)
 
 Right-click the current price displayed on the chart (usually top-left or right)
 
@@ -1156,9 +1156,9 @@ Parent container if needed
 We can then write this into the extension as a static or fallback selector list.
 
 🎁 Want Me to Simulate the DOM Right Now?
-If you're mobile or can't access TradingView’s real DOM easily, I can generate:
+If you're mobile or can't access binance api’s real DOM easily, I can generate:
 
-A mock TradingView HTML snippet to simulate DOM scraping
+A mock binance api HTML snippet to simulate DOM scraping
 
 A sample content.js file that targets that structure
 
@@ -1180,11 +1180,11 @@ You now have a full tactical blueprint of S.C.A.L.E. — not just what it does, 
 ✅ S.C.A.L.E. – Final Operational Summary
 🔧 Role:
 Signal Capture & Live Extraction
-The “eyes” of SHADOW — pulls live market data straight from TradingView’s DOM every 5 seconds and ships it to the SHADOW backend (via FastAPI).
+The “eyes” of SHADOW — pulls live market data straight from binance api’s DOM every 5 seconds and ships it to the SHADOW backend (via FastAPI).
 
 🧠 Functional Summary:
 System Component	Function
-Brave Extension	Scrapes TradingView DOM (price, maybe ticker)
+Brave Extension	Scrapes binance api DOM (price, maybe ticker)
 Minimal UI	Backend connection only; no distractions
 FastAPI Backend	Receives + logs incoming data
 Logger	Dual-mode: SQLite + CSV in structured monthly folders

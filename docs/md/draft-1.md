@@ -25,7 +25,7 @@ SHADOW's architecture comprises several components working sequentially to proce
 - **Submodules**: Eight specialized modules handle tasks from data capture to final execution.
 
 ### 2.1 Data Input
-- **Live Data**: Extracted via a screen reader on TradingView, focusing on price digits and timestamps in real-time.
+- **Live Data**: Extracted via a screen reader on binance api, focusing on price digits and timestamps in real-time.
 - **Historical Data**: Sourced from APIs like Binance, Yahoo Finance, or Alpha Vantage, stored and managed locally.
 
 ### 2.2 Training Pipeline
@@ -48,7 +48,7 @@ SHADOW processes two main data categories:
 
 ### 3.1 Price Data
 - **Historical Prices**: Sourced from Binance, Yahoo Finance, or Alpha Vantage, dating back as far as available.
-- **Live Prices**: Captured via a screen reader on TradingView, focusing on BTC/USD due to its market influence.
+- **Live Prices**: Captured via a screen reader on binance api, focusing on BTC/USD due to its market influence.
 - **Format**: OHLCV (Open, High, Low, Close, Volume) with UNIX timestamps.
 
 ### 3.2 News Data
@@ -65,7 +65,7 @@ The system learns market behavior patterns with and without news influences, ana
 SHADOW's submodules are listed in their operational sequence, detailing their missions and tasks:
 
 ### 4.1 S.C.A.L.E. (Signal Capture & Live Extraction)
-- **Mission**: Reads TradingView live charts in real-time.
+- **Mission**: Reads binance api live charts in real-time.
 - **Task**: Extracts price digits and timestamps, feeding clean data to GRIM and PHANTOM for processing.
 
 ### 4.2 S.P.E.C.T.R.E. (Stealthy Proxy & Extraction Covert Tactical Retrieval Engine)
