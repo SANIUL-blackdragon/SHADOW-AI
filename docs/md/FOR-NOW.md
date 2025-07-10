@@ -33,14 +33,14 @@ Submodules Included in MVP
 
 S.C.A.L.E. (Signal Capture & Live Extraction): Captures live price data (e.g., BTC/USD) from TradingView.
 G.R.I.M. (Grounded Repository for Indexed Market-data): Stores and manages historical price data.
-F.L.A.R.E. (Filtered Linguistic Analysis & Reaction Engine): Analyzes news text to produce sentiment scores.
+F.L.A.R.E. (Filtered Linguistic Analysis & Reaction Engine): Analyzes news text to produce sentiment scores. But use a lite model of S.P.E.C.T.R.E. for F.L.A.R.E. to work.
 P.H.A.N.T.O.M. (Predictive Heuristic AI for Navigating Trades & Order Management): Core predictive model generating trade signals.
 E.C.H.O. (Event Communication & Heuristic Output): Delivers predictions via command-line interface (CLI) and Discord webhooks.
 V.E.I.L. (Virtual Execution & Intelligent Learning): Simulates trades in paper mode and logs performance.
 
 Submodules Excluded from MVP
 
-S.P.E.C.T.R.E.: Complex news scraping with TOR/proxy rotation is deferred; a simplified approach or placeholder will be used.
+S.P.E.C.T.R.E.: Complex news scraping with TOR/proxy rotation is deferred; a simplified approach or placeholder will be used. But use a lite model of S.P.E.C.T.R.E. for F.L.A.R.E. to work.
 B.L.A.D.E.: Binary compilation is unnecessary for the MVP; a Python-based prototype suffices.
 
 4. MVP Scope and Deliverables
