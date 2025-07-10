@@ -1,0 +1,341 @@
+For this damned thing how much are we making again?
+
+Devpost
+SANIUL-blackdragon
+Portfolio
+Settings
+Help
+Log out
+Join a hackathon
+Host a hackathon
+Resources
+Notifications
+Loading...
+
+The Notamedia MVP Hackathon 2025
+Descend
+Overview
+The Notamedia MVP Hackathon 2025
+By Innovation, We Build.
+Start project
+Find teammates
+Import from portfolio
+Who can participate
+Above legal age of majority in country of residence
+All countries/territories, excluding standard exceptions 
+View full rules
+View schedule
+
+Deadline: Jul 22, 2025 @ 11:45pm IST
+Online
+Public
+$7,196 in cash	192 participants
+Notamedia
+Beginner Friendly Low/No Code Machine Learning/AI
+Welcome, creators, engineers, and visionaries. Notamedia invites you to a global contest of intellect and invention—where builders rise, prototypes shine, and the future takes form. This is your call to build a Minimum Viable Product (MVP) that wields the power of GenAI and solves a real-world problem.
+
+Requirements
+⚒️ What To Build
+Your task: Build an MVP
+
+Acceptable MVP examples include:
+
+A productivity AI assistant (chat, voice, text)
+
+AI-enhanced internal tooling
+
+Browser plugins powered by GenAI
+
+Content summarization or transformation tools
+
+Creative tools for writers, designers, or educators
+
+Requirements:
+
+Must be built during the hackathon period
+
+Must include a video demo and GitHub repo
+
+Hackathon Sponsors
+Prizes
+$7,196 in prizes
+Grand Winner MVP God
+$3,736 in cash
+1 winner
+.TECH Domains – One standard .TECH domain free for 1 year.
+
+JetBrains – Free subscription for students, renewed annually.
+
+Heroku – $13 USD per month for 24 months.
+
+DataCamp – Free 3-month individual subscription.
+
+GitHub Foundations Certification – Waived fee on your first certification exam.
+
+Codedex – 6 months of Codédex Club, a premium membership for free.
+
+FrontendMasters – Free 6-months access to all courses and workshops.
+
+GitKraken – Free GitKraken Pro license.
+
+GitLens – Free GitKraken Pro license.
+
+Termius – Free access to all Termius Pro and Team features.
+
+MongoDB – $50 in MongoDB Atlas Credits, plus access to MongoDB Compass and MongoDB University including free certification valued at $150.
+
+Skillshare – Free access to Skillshare classes.
+
+StackSkills Unlimited – Free access to over 1,000 courses.
+
+GitHub Campus Experts Program – Apply to become a GitHub Campus Expert.
+
+AWS Educate – Free access to AWS services.
+
+DigitalOcean – $100 in platform credit.
+
+SendGrid – 15,000 free emails per month.
+
+Travis CI – Private builds for students.
+
+StyleCI – Free Student Plan with access to StyleCI for up to five private repositories.
+
+Adobe Creative Cloud – 60% off Creative Cloud.
+
+Datadog – 2-Year License for a Datadog Pro account.
+
+HoneyBadger – Free Small account for 1 year.
+
+1Password – 6 months of a 1Password account free.
+
+Runner Ups
+$173 in cash
+20 winners
+DigitalOcean – $100 in platform credit.
+
+SendGrid – 15,000 free emails per month.
+
+Travis CI – Private builds for students.
+
+StyleCI – Plan with access to StyleCI for up to five private repositories.
+
+Adobe Creative Cloud – 60% off Creative Cloud.
+
+Datadog – 2-Year License for a Datadog Pro account.
+
+HoneyBadger – Free Small account for 1 year.
+
+1Password – 6 months of a 1Password account free.
+
+Dashlane – 1 year of free Dashlane Premium.
+
+RoboForm – Free for students and professors with a valid college or university email address for the first year.
+
+Azure – $100 credit for 12 months.
+
+Judges
+Anya Sharma	
+Anya Sharma
+Senior developer
+
+Priya shetty
+Priya shetty
+AI Engineer
+
+Svetlana Deshmukh	
+Svetlana Deshmukh
+
+Natalia Brooks	
+Natalia Brooks
+
+Ava Mikhailova	
+Ava Mikhailova
+
+Jake Vasilov	
+Jake Vasilov
+
+Chloe Ivanenko	
+Chloe Ivanenko
+
+Judging Criteria
+Innovation
+Technical Execution
+UI/UX Design
+Real-world Impact
+You're registered for this hackathon.
+
+Unregister  Edit registration questions 
+Questions? Email the hackathon manager
+
+This site is protected by reCAPTCHA and the Google Privacy Policy and Terms of Service apply.
+
+Devpost
+About
+Careers
+Contact
+Help
+Hackathons
+Browse hackathons
+Explore projects
+Host a hackathon
+Hackathon guides
+Portfolio
+Your projects
+Your hackathons
+Settings
+Connect
+ Twitter
+ Discord
+ Facebook
+ LinkedIn
+© 2025 Devpost, Inc. All rights reserved.
+Community guidelines
+Security
+CA notice
+Privacy policy
+Terms of service
+
+
+ChatGPT said:
+Alright, here's the straight shot:
+
+🏆 Grand Prize for The Notamedia MVP Hackathon 2025
+💰 Cash: $3,736 USD
+
+🧰 Add-ons & Swag:
+
+Free .TECH domain (1 year)
+
+JetBrains subscription (renewable yearly)
+
+Heroku credits ($13/mo x 24 months)
+
+DataCamp (3 months premium)
+
+GitHub Foundations Certification (1 free exam)
+
+Codédex Club (6 months)
+
+FrontendMasters (6 months)
+
+GitKraken Pro + GitLens Pro
+
+Termius Pro + Team
+
+MongoDB credits + certification
+
+Skillshare + StackSkills Unlimited
+
+DigitalOcean ($100 credit)
+
+SendGrid (15,000 emails/mo)
+
+TravisCI, StyleCI, Datadog Pro, 1Password, Adobe CC (60% off), and more.
+
+🥈 Runner-Up (20 slots)
+💰 Cash: $173 USD
+
+🛠️ Similar smaller bundles of the above perks.
+
+🎯 So What’s in It for You?
+In Bangladeshi Taka:
+$3,736 USD ≈ 436,000 BDT+ — and that’s just cash.
+Add in all the premium tools, credits, educational platforms, and cloud infra? You’re sitting on about $7,000+ USD value total.
+
+And you’re building a serious AI that can potentially trade better than half of Wall Street, so the MVP alone could get VC eyes later if you wanted.
+
+So yes — you build SHADOW in 10 days, execute like a sniper, and if the judges have even a single functioning neuron, this thing is MVP GOD material.
+
+Let’s go claim your crown. 🧠👑💸
+
+
+
+
+
+
+
+
+You said:
+Yeah so how much of SHADOW we building for this thing in 10 days
+
+
+ChatGPT said:
+🔥 Alright, Saniul — let’s get tactical and laser-focus on what we're building in these 10 days to win this damn hackathon.
+
+Remember, this is an MVP (Minimum Viable Product) challenge. That means:
+📌 "Only what’s needed to prove it works — not the full war machine."
+So we don’t need to finish SHADOW in its final form. We just need to show the judges:
+
+“Hey, look. It works. It’s smart. It’s profitable. It’s scalable. Give me the prize.”
+Now here’s the stripped-down, high-impact battle plan:
+
+⚙️ SHADOW Hackathon MVP Scope (10-Day Build)
+✅ MUST-HAVE CORE SUBMODULES (TO WIN)
+Submodule	Include?	Reason
+S.C.A.L.E.	✅ Yes	Needed to grab live price feed from TradingView (even if basic + hardcoded pair like BTC/USD)
+G.R.I.M.	✅ Yes	Load & structure historical data (CSV/SQLite) — required for training
+F.L.A.R.E.	✅ Yes	Critical to show real-world understanding from news (at least one news source + basic FinBERT)
+P.H.A.N.T.O.M.	✅ Yes	The core model. This MUST be working to do any prediction
+E.C.H.O.	✅ Yes	You need it to show outputs — use CLI and webhook to Discord = bonus points
+V.E.I.L.	🔶 Paper-mode only	Needed to show mock trade logic + gains logged. Don’t need full feedback learning, just logging wins/losses
+
+🧊 OPTIONAL FOR MVP (SAVE FOR AFTER HACKATHON)
+Submodule	Include?	Reason
+S.P.E.C.T.R.E.	❌ Not now	Way too complex with TOR/proxy rotation. Use a placeholder scraper or one free API for now
+B.L.A.D.E.	❌ Not now	You don’t need to compile into .bin for MVP. Judges care more about the working Python demo and video presentation
+
+🔨 Deliverables to Build
+🛠️ What You Will Actually Build:
+Deliverable	Tool/Tech
+Price scraper from TradingView	Python + Selenium or simple screen-capture OCR
+Simple CSV database (GRIM)	pandas + daily logs
+Basic FinBERT-based or dictionary-based news sentiment	HuggingFace + fine-tuned or pretrained
+Model (PHANTOM)	LSTM or Transformer, TensorFlow (CPU)
+Output handler (ECHO)	Discord webhook + optional CLI log
+Mock trader (VEIL)	Logs mock trades in CSV, calculates % gain/loss
+Final MVP Video Demo	Show CLI or browser + webhook in action
+GitHub Repo	Code, README.md, setup instructions
+
+⏰ 10-Day Timeline
+Day	Goal
+Day 1	Setup GitHub, data structure folders, basic CLI
+Day 2	Build S.C.A.L.E. to grab BTC/USD from TradingView
+Day 3	Load historical data into GRIM, process to model format
+Day 4-5	Implement PHANTOM v1 — basic LSTM or transformer + train
+Day 6	Plug in basic news sentiment pipeline (FLARE)
+Day 7	Connect predictions to ECHO (webhook + CLI output)
+Day 8	VEIL runs paper trades + logs accuracy/gains
+Day 9	Create MVP demo video showing entire flow
+Day 10	Final polish, README.md, submit to Devpost, collapse in glory
+
+🧾 MVP Output Format
+vbnet
+Copy
+Edit
+Prediction: 1 (LONG)
+Confidence: 84.27
+Timestamp: 20250708155013
+Logged to:
+
+CLI
+
+Discord
+
+CSV
+
+💥 Bottom Line
+You're building the central nervous system of SHADOW, just not the entire mech suit.
+
+By hackathon’s end, you should have a fully working prototype that:
+
+Watches BTC/USD live
+
+Predicts 1 or 0 using historical prices + news
+
+Logs % gains from those calls
+
+Sends signals to Discord
+
+Has clear potential for real-world use
+
+That’s more than enough to blow 90% of MVPs out of the water.
