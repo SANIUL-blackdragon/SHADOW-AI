@@ -12,6 +12,7 @@ build/
 # Virtual environment
 shadow-ai-venv/
 venv/
+scale-venv/
 
 # Data and logs
 data/
