@@ -1,7 +1,4 @@
-import sys
 import os
-import subprocess
-import platform
 import requests
 import time
 import json
@@ -10,13 +7,7 @@ from datetime import datetime, timezone
 from typing import Optional, Dict
 import logging
 
-try:
-    import keyboard
-except ImportError:
-    keyboard = None
-    print("Warning: 'keyboard' module not found. ESC key stop will be disabled.")
-
-# Configure logging with environment-aware file path
+# Configure logging
 log_file = "scale.log" if os.name == 'nt' else ("/var/log/scale.log" if os.getenv("ENV") == "production" else "scale.log")
 logging.basicConfig(
     level=logging.INFO,
@@ -28,44 +19,26 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Construct the path to the venv's Python interpreter relative to the script
-VENV_DIR = os.path.join(os.path.dirname(__file__), "scale-venv")
-VENV_PYTHON = os.path.join(VENV_DIR, "Scripts" if platform.system() == "Windows" else "bin", "python.exe" if platform.system() == "Windows" else "python")
-
-# Check if the current interpreter is the venv's interpreter
-if os.path.normcase(os.path.abspath(sys.executable)) != os.path.normcase(os.path.abspath(VENV_PYTHON)):
-    logger.info(f"Relaunching with venv interpreter: {VENV_PYTHON}")
-    cmd = [VENV_PYTHON, __file__] + sys.argv[1:]
-    kwargs = {"creationflags": subprocess.CREATE_NO_WINDOW} if platform.system() == "Windows" else {}
-    subprocess.run(cmd, **kwargs)  # type: ignore
-    sys.exit(0)
-
-# Log the interpreter being used for verification
-logger.info(f"Running with interpreter: {sys.executable}")
-
-# Global stop flag
-stop_flag = False
-
-def set_stop_flag():
-    global stop_flag
-    stop_flag = True
-
 # Hardcoded configuration
 SYMBOL = "BTCUSDT"
 POLL_INTERVAL = 1  # Seconds
 MAX_API_RETRIES = 3  # Maximum retries for API requests
 RETRY_DELAY = 2  # Seconds
-BASE_URL = "https://api.binance.com/api/v3/ticker/price"  # Binance API endpoint for price ticker
+BASE_URL = "https://api.binance.com/api/v3/ticker/price"  # Binance API endpoint
 OUTPUT_BASE_DIR = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")), "data", "scale")  # Base output directory
-MONTH_DIR = os.path.join(OUTPUT_BASE_DIR, "202507")  # Month directory (July 2025)
-CSV_DIR = os.path.join(MONTH_DIR, "csv")  # CSV output directory
-SQLITE_DIR = os.path.join(MONTH_DIR, "sqlite")  # SQLite database directory
-TXT_DIR = os.path.join(MONTH_DIR, "txt")  # TXT output directory
 TIMEZONE = timezone.utc  # UTC timezone for timestamps
 
-def setup_directories() -> None:
-    """Create output directories if they don't exist."""
-    for dir_path in [CSV_DIR, SQLITE_DIR, TXT_DIR]:
+def get_month_dir() -> str:
+    """Get the current YYYYMM directory."""
+    return os.path.join(OUTPUT_BASE_DIR, datetime.now(TIMEZONE).strftime("%Y%m"))
+
+def setup_directories(date_str: str) -> None:
+    """Create output directories for the current month."""
+    month_dir = get_month_dir()
+    csv_dir = os.path.join(month_dir, "csv")
+    sqlite_dir = os.path.join(month_dir, "sqlite")
+    txt_dir = os.path.join(month_dir, "txt")
+    for dir_path in [csv_dir, sqlite_dir, txt_dir]:
         try:
             os.makedirs(dir_path, exist_ok=True)
             logger.info(f"Directory created/verified: {dir_path}")
@@ -74,7 +47,8 @@ def setup_directories() -> None:
 
 def setup_sqlite(date_str: str) -> Optional[str]:
     """Initialize SQLite database and trades table."""
-    sqlite_file = os.path.join(SQLITE_DIR, f"{date_str}.db")
+    month_dir = get_month_dir()
+    sqlite_file = os.path.join(month_dir, "sqlite", f"{date_str}.db")
     try:
         conn = sqlite3.connect(sqlite_file)
         cursor = conn.cursor()
@@ -129,9 +103,10 @@ def save_data(data: Optional[Dict], date_str: str) -> None:
     """Save price data to CSV, SQLite, and TXT."""
     if data is None:
         return
-    csv_file = os.path.join(CSV_DIR, f"{date_str}.csv")
-    sqlite_file = os.path.join(SQLITE_DIR, f"{date_str}.db")
-    txt_file = os.path.join(TXT_DIR, f"{date_str}.txt")
+    month_dir = get_month_dir()
+    csv_file = os.path.join(month_dir, "csv", f"{date_str}.csv")
+    sqlite_file = os.path.join(month_dir, "sqlite", f"{date_str}.db")
+    txt_file = os.path.join(month_dir, "txt", f"{date_str}.txt")
     
     save_start = time.time()
     
@@ -172,28 +147,22 @@ def save_data(data: Optional[Dict], date_str: str) -> None:
 
 def main() -> None:
     """Main loop for S.C.A.L.E."""
-    global stop_flag
-    logger.info("Starting S.C.A.L.E. Press 'q' to stop the script.")
-    
-    # Set up keyboard listener for 'q' key to stop the script
-    if keyboard:
-        keyboard.on_press_key('esc', lambda _: set_stop_flag())
-    else:
-        logger.warning("Keyboard module not available. ESC key stop disabled.")
+    logger.info("Starting S.C.A.L.E. Press Ctrl+C to stop.")
     
     current_date_str = datetime.now(TIMEZONE).strftime("%Y%m%d")
-    setup_directories()
+    setup_directories(current_date_str)
     sqlite_file = setup_sqlite(current_date_str)
     if sqlite_file is None:
         logger.error("Stopping S.C.A.L.E. due to SQLite setup failure")
         return
     
     try:
-        while not stop_flag:
+        while True:
             start_time = time.time()
             new_date_str = datetime.now(TIMEZONE).strftime("%Y%m%d")
             if new_date_str != current_date_str:
-                logger.info(f"Date changed to {new_date_str}. Initializing new SQLite database.")
+                logger.info(f"Date changed to {new_date_str}. Updating directories and SQLite database.")
+                setup_directories(new_date_str)
                 sqlite_file = setup_sqlite(new_date_str)
                 if sqlite_file is None:
                     logger.error("Stopping S.C.A.L.E. due to SQLite setup failure")
@@ -211,12 +180,10 @@ def main() -> None:
             sleep_time = max(POLL_INTERVAL - elapsed, 0)
             time.sleep(sleep_time)
     except KeyboardInterrupt:
-        logger.info("Stopping S.C.A.L.E. via KeyboardInterrupt")
+        logger.info("Stopping S.C.A.L.E. via Ctrl+C")
     except Exception as e:
         logger.error(f"Error in main loop: {e}")
     finally:
-        if stop_flag:
-            logger.info("Stop key pressed. Stopping S.C.A.L.E.")
         logger.info("Cleaning up and stopping S.C.A.L.E.")
 
 if __name__ == "__main__":
