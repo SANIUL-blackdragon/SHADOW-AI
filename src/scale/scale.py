@@ -1,19 +1,20 @@
+import sys
+import os
+import subprocess
+import platform
 import requests
 import time
-import os
 import json
 import sqlite3
 from datetime import datetime, timezone
 from typing import Optional, Dict
 import logging
-import keyboard  # For keybind to stop the script
 
-# Global stop flag
-stop_flag = False
-
-def set_stop_flag():
-    global stop_flag
-    stop_flag = True
+try:
+    import keyboard
+except ImportError:
+    keyboard = None
+    print("Warning: 'keyboard' module not found. ESC key stop will be disabled.")
 
 # Configure logging with environment-aware file path
 log_file = "scale.log" if os.name == 'nt' else ("/var/log/scale.log" if os.getenv("ENV") == "production" else "scale.log")
@@ -27,6 +28,28 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# Construct the path to the venv's Python interpreter relative to the script
+VENV_DIR = os.path.join(os.path.dirname(__file__), "scale-venv")
+VENV_PYTHON = os.path.join(VENV_DIR, "Scripts" if platform.system() == "Windows" else "bin", "python.exe" if platform.system() == "Windows" else "python")
+
+# Check if the current interpreter is the venv's interpreter
+if os.path.normcase(os.path.abspath(sys.executable)) != os.path.normcase(os.path.abspath(VENV_PYTHON)):
+    logger.info(f"Relaunching with venv interpreter: {VENV_PYTHON}")
+    cmd = [VENV_PYTHON, __file__] + sys.argv[1:]
+    kwargs = {"creationflags": subprocess.CREATE_NO_WINDOW} if platform.system() == "Windows" else {}
+    subprocess.run(cmd, **kwargs)  # type: ignore
+    sys.exit(0)
+
+# Log the interpreter being used for verification
+logger.info(f"Running with interpreter: {sys.executable}")
+
+# Global stop flag
+stop_flag = False
+
+def set_stop_flag():
+    global stop_flag
+    stop_flag = True
+
 # Hardcoded configuration
 SYMBOL = "BTCUSDT"
 POLL_INTERVAL = 1  # Seconds
@@ -34,7 +57,7 @@ MAX_API_RETRIES = 3  # Maximum retries for API requests
 RETRY_DELAY = 2  # Seconds
 BASE_URL = "https://api.binance.com/api/v3/ticker/price"  # Binance API endpoint for price ticker
 OUTPUT_BASE_DIR = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")), "data", "scale")  # Base output directory
-MONTH_DIR = os.path.join(OUTPUT_BASE_DIR, "202507")  # Example month directory (July 2025)
+MONTH_DIR = os.path.join(OUTPUT_BASE_DIR, "202507")  # Month directory (July 2025)
 CSV_DIR = os.path.join(MONTH_DIR, "csv")  # CSV output directory
 SQLITE_DIR = os.path.join(MONTH_DIR, "sqlite")  # SQLite database directory
 TXT_DIR = os.path.join(MONTH_DIR, "txt")  # TXT output directory
@@ -132,7 +155,7 @@ def save_data(data: Optional[Dict], date_str: str) -> None:
         conn.close()
         logger.info(f"Saved to SQLite: {sqlite_file}")
     except sqlite3.Error as e:
-        logger.error(f"SQLite error writing toouwen {sqlite_file}: {e}")
+        logger.error(f"SQLite error writing to {sqlite_file}: {e}")
     
     # TXT
     try:
@@ -153,7 +176,10 @@ def main() -> None:
     logger.info("Starting S.C.A.L.E. Press 'q' to stop the script.")
     
     # Set up keyboard listener for 'q' key to stop the script
-    keyboard.on_press_key('q', lambda _: set_stop_flag())
+    if keyboard:
+        keyboard.on_press_key('esc', lambda _: set_stop_flag())
+    else:
+        logger.warning("Keyboard module not available. ESC key stop disabled.")
     
     current_date_str = datetime.now(TIMEZONE).strftime("%Y%m%d")
     setup_directories()
@@ -176,7 +202,10 @@ def main() -> None:
             
             data = fetch_price()
             if data:
+                print(f"{data['timestamp']} | Price: {data['price']}")
                 save_data(data, current_date_str)
+            else:
+                print(f"{datetime.now(TIMEZONE).strftime('%Y-%m-%dT%H:%M:%SZ')} | No data fetched")
             
             elapsed = time.time() - start_time
             sleep_time = max(POLL_INTERVAL - elapsed, 0)
