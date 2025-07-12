@@ -93,7 +93,7 @@ def fetch_price() -> Optional[Dict]:
             timestamp = datetime.fromtimestamp(trade["T"] / 1000, tz=TIMEZONE).strftime("%Y-%m-%dT%H:%M:%SZ")
             price = float(trade["p"])
             quantity = float(trade["q"])
-            quote_qty = float(trade["q"] * trade["p"])
+            quote_qty = price * quantity
             trade_id = int(trade["a"])
             fetch_end = time.time()
             logger.info(f"Fetched trade: price={price}, quantity={quantity}, tradeId={trade_id} at {timestamp}")

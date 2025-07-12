@@ -13,6 +13,7 @@ build/
 shadow-ai-venv/
 venv/
 scale-venv/
+grim-venv/
 
 # Data and logs
 data/
