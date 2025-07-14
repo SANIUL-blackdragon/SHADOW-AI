@@ -1,3 +1,4 @@
+# Python virtual environments (top-level and nested)
 venv/
 shadow-ai-venv/
 scale-venv/
@@ -37,5 +38,12 @@ zip/
 *.swp
 *.swo
 
-# Miscellaneous
+# Secrets and environment files
 .env
+.env.*
+*.env
+*.secret
+*.key
+config.yaml
+config.yml
+secrets.json
