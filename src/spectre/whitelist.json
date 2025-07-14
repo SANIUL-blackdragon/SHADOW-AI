@@ -1,0 +1,12 @@
+[
+    {
+        "name": "Reuters Commodities",
+        "url": "https://www.reuters.com/markets/commodities/",
+        "type": "homepage"
+    },
+    {
+        "name": "BBC Business",
+        "url": "https://www.bbc.com/news/business",
+        "type": "homepage"
+    }
+]

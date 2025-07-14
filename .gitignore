@@ -1,5 +1,12 @@
+venv/
 shadow-ai-venv/
-# Python
+scale-venv/
+grim-venv/
+src/*/venv/
+src/*/scale-venv/
+src/*/grim-venv/
+
+# Python cache and build files
 __pycache__/
 *.pyc
 *.pyo
@@ -9,27 +16,26 @@ __pycache__/
 dist/
 build/
 
-# Virtual environment
-shadow-ai-venv/
-venv/
-scale-venv/
-grim-venv/
-
-# Data and logs
+# Data and logs (exclude all, including nested)
 data/
+src/*/data/
 logs/
+src/*/logs/
+bin/
+sqlite/
+zip/
 
-# IDE and editor files
+# Database and output files
+*.log
+*.csv
+*.db
+*.sqlite3
+
+# IDE/editor files
 .vscode/
 .idea/
 *.swp
 *.swo
 
 # Miscellaneous
-*.log
-*.csv
-*.db
-*.sqlite3
-.env  # For sensitive keys (e.g., NewsAPI key)
-sqlite/
-data/
+.env

@@ -26,7 +26,7 @@ MAX_API_RETRIES = 3  # Maximum retries for API requests
 RETRY_DELAY = 2  # Seconds
 BASE_URL = "https://api.binance.com/api/v3/aggTrades"  # Binance aggregated trades endpoint
 OUTPUT_BASE_DIR = os.path.join(os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")), "data", "scale")
-TIMEZONE = timezone.utc
+TIMEZONE = timezone.utc # Use UTC for timestamps
 
 def get_month_dir(timestamp: datetime) -> str:
     """Get YYYYMM directory based on data's timestamp."""
