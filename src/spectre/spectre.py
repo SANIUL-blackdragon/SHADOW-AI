@@ -45,7 +45,7 @@ class Spectre:
 
         page = await context.new_page()
         try:
-            await page.goto(url, wait_until='networkidle', timeout=60000)
+            await page.goto(url, wait_until='networkidle', timeout=90000)
             await page.evaluate('() => { window.scrollTo(0, document.body.scrollHeight); document.querySelectorAll(\'[class*="paywall"], .overlay, [style*="blur"]\').forEach(e => e.remove()); }')
             
             html = await page.content()
@@ -115,7 +115,15 @@ class Spectre:
                 return None, False # No new content
             
             # If new, find the primary article link to scrape
-            primary_link = await page.eval_on_selector('article a, main a, [class*="media"] a', 'el => el.href')
+            primary_link = await page.evaluate("""() => {
+                const links = Array.from(document.querySelectorAll('a'));
+                for (const link of links) {
+                    if (link.href && (link.href.includes('/article/') || link.href.includes('/news/')) && !link.href.includes('#')) {
+                        return link.href;
+                    }
+                }
+                return null;
+            }""")
             if primary_link:
                 cache[site['name']] = content_hash
                 save_cache(cache)
