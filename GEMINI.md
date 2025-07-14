@@ -44,3 +44,37 @@ Our immediate objective is to implement the MVP as described in `docs/md/FOR-NOW
 ## 6. Important Rules
 
 - **Do not modify `src/scale/scale.py` or `src/grim/grim.py` unless explicitly instructed to do so.** These modules have been built by the user.
+
+## 7. MVP Development Plan
+
+This plan outlines the steps to build the SHADOW AI MVP. After completing each step, I will update this section to mark the task as done.
+
+**Day 1: Project Setup**
+- [X] Initialize GitHub repository.
+- [X] Set up project structure.
+- [X] Create `shadow_ai.py` with CLI integration.
+
+**Day 2: S.C.A.L.E. Module**
+- [ ] Develop S.C.A.L.E. to extract BTC/USD live data from Binance API.
+
+**Day 3: G.R.I.M. Module**
+- [ ] Implement G.R.I.M. to load and structure historical data.
+
+**Day 4-5: P.H.A.N.T.O.M. Module**
+- [ ] Build and train P.H.A.N.T.O.M. using an LSTM or Transformer model.
+
+**Day 6: F.L.A.R.E. Module**
+- [ ] Integrate F.L.A.R.E. for basic news sentiment analysis.
+
+**Day 7: E.C.H.O. Module**
+- [ ] Configure E.C.H.O. for CLI and Discord webhook outputs.
+
+**Day 8: V.E.I.L. Module**
+- [ ] Implement V.E.I.L. for paper trading and performance logging.
+
+**Day 9: Documentation & Demo**
+- [ ] Record and edit the MVP video demo.
+- [ ] Write `README.md`.
+
+**Day 10: Finalization**
+- [ ] Finalize repository and submit.
