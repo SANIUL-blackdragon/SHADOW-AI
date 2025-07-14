@@ -45,7 +45,8 @@ class Spectre:
 
         page = await context.new_page()
         try:
-            await page.goto(url, wait_until='networkidle', timeout=90000)
+            await page.goto(url, wait_until='domcontentloaded', timeout=90000)
+            await page.wait_for_timeout(5000) # Give some extra time for dynamic content
             await page.evaluate('() => { window.scrollTo(0, document.body.scrollHeight); document.querySelectorAll(\'[class*="paywall"], .overlay, [style*="blur"]\').forEach(e => e.remove()); }')
             
             html = await page.content()
@@ -104,26 +105,43 @@ class Spectre:
         """Checks if a site has new content."""
         page = await self.browser.new_page()
         try:
-            await page.goto(site['url'], wait_until='domcontentloaded', timeout=30000)
-            # A simple heuristic: hash the headlines
-            headlines = await page.eval_on_selector_all('h1, h2, h3, a[href*="article"]', 'elements => elements.map(e => e.innerText).join(" ").slice(0, 500)')
+            await page.goto(site['url'], wait_until='load', timeout=30000)
+            
+            # Try to get a more specific set of headlines/links for hashing
+            # For Reuters, look for links within specific article containers
+            if "reuters.com" in site['url']:
+                headlines_elements = await page.query_selector_all('div.media-story-card a[href*="/markets/"]')
+                headlines = " ".join([await el.inner_text() for el in headlines_elements])
+                primary_link_element = await page.query_selector('div.media-story-card a[href*="/markets/"]')
+                primary_link = await primary_link_element.get_attribute('href') if primary_link_element else None
+            else: # Generic approach for other sites
+                headlines = await page.eval_on_selector_all('h1, h2, h3, a[href*="article"], a[href*="news"]', 'elements => elements.map(e => e.innerText).join(" ").slice(0, 500)')
+                primary_link = await page.evaluate("""() => {
+                    const links = Array.from(document.querySelectorAll('a'));
+                    for (const link of links) {
+                        if (link.href && (link.href.includes('/article/') || link.href.includes('/news/')) && !link.href.includes('#')) {
+                            return link.href;
+                        }
+                    }
+                    return null;
+                }""")
+
             content_hash = hashlib.sha256(headlines.encode()).hexdigest()
             
             cache = load_cache()
+            print(f"Current cache for {site['name']}: {cache.get(site['name'])}")
+            print(f"New content hash: {content_hash}")
+
             if cache.get(site['name']) == content_hash:
                 print(f"No changes detected for: {site['name']}")
                 return None, False # No new content
             
-            # If new, find the primary article link to scrape
-            primary_link = await page.evaluate("""() => {
-                const links = Array.from(document.querySelectorAll('a'));
-                for (const link of links) {
-                    if (link.href && (link.href.includes('/article/') || link.href.includes('/news/')) && !link.href.includes('#')) {
-                        return link.href;
-                    }
-                }
-                return null;
-            }""")
+            print(f"Change detected for {site['name']}. Primary link found: {primary_link}")
+            if primary_link:
+                cache[site['name']] = content_hash
+                save_cache(cache)
+                return primary_link, True # New content found
+            print(f"No primary link found for {site['name']} despite content change.")
             if primary_link:
                 cache[site['name']] = content_hash
                 save_cache(cache)

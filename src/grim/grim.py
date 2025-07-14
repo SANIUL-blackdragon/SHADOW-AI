@@ -84,12 +84,33 @@ def check_csv_date_range(file_path: str) -> tuple[Optional[datetime], Optional[d
     try:
         df = pd.read_csv(file_path, usecols=['unix'], dtype={'unix': 'float64'}, low_memory=False)
         if 'unix' not in df.columns or df['unix'].isna().all():
+            logger.warning(f"Skipping {file_path}: 'unix' column missing or all NaN.")
             return None, None
-        min_ts = pd.to_datetime(df['unix'].min(), unit='ms', errors='coerce', utc=True)
-        max_ts = pd.to_datetime(df['unix'].max(), unit='ms', errors='coerce', utc=True)
+        
+        # Convert to datetime, coercing errors will turn invalid dates into NaT
+        df['unix_datetime'] = pd.to_datetime(df['unix'], unit='ms', errors='coerce', utc=True)
+        
+        # Drop rows where timestamp conversion failed
+        df = df.dropna(subset=['unix_datetime'])
+        
+        if df.empty:
+            logger.warning(f"Skipping {file_path}: No valid timestamps after parsing.")
+            return None, None
+
+        min_ts = df['unix_datetime'].min()
+        max_ts = df['unix_datetime'].max()
         return min_ts, max_ts
+    except FileNotFoundError:
+        logger.error(f"File not found: {file_path}")
+        return None, None
+    except pd.errors.EmptyDataError:
+        logger.warning(f"Skipping {file_path}: File is empty.")
+        return None, None
+    except pd.errors.ParserError as e:
+        logger.error(f"Parser error reading {file_path}: {e}")
+        return None, None
     except Exception as e:
-        logger.error(f"Error checking date range for {file_path}: {e}")
+        logger.error(f"Unexpected error checking date range for {file_path}: {e}")
         return None, None
 
 def process_csv_file(file_path: str, missing_dates: Set[str]) -> None:
@@ -112,15 +133,28 @@ def process_csv_file(file_path: str, missing_dates: Set[str]) -> None:
             logger.info(f"Skipping {file_path}: No missing dates in range {min_ts} to {max_ts}")
             return
         
-        # Read CSV with specified dtypes
-        df = pd.read_csv(file_path, dtype=CSV_DTYPES, low_memory=False)
+        try:
+            df = pd.read_csv(file_path, dtype=CSV_DTYPES, low_memory=False)
+        except pd.errors.EmptyDataError:
+            logger.warning(f"Skipping {file_path}: File is empty.")
+            return
+        except pd.errors.ParserError as e:
+            logger.error(f"Parser error reading {file_path}: {e}")
+            return
+        except Exception as e:
+            logger.error(f"Error reading CSV {file_path}: {e}")
+            return
         
         # Determine if the CSV is OHLCV or trade data
         is_ohlcv = all(col in df.columns for col in ['open', 'high', 'low', 'close'])
         
         if is_ohlcv:
             # Map OHLCV columns
-            df['timestamp'] = pd.to_datetime(df['unix'], unit='ms', errors='coerce').dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+            try:
+                df['timestamp'] = pd.to_datetime(df['unix'], unit='ms', errors='coerce').dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+            except Exception as e:
+                logger.error(f"Error converting 'unix' to timestamp in {file_path} (OHLCV): {e}")
+                df['timestamp'] = None
             df['open'] = df['open']
             df['high'] = df['high']
             df['low'] = df['low']
@@ -137,10 +171,19 @@ def process_csv_file(file_path: str, missing_dates: Set[str]) -> None:
             # Map trade data columns
             df['tradeId'] = df.get('id', df.get('tradeId'))
             if 'date' in df.columns:
-                df['timestamp'] = pd.to_datetime(df['date'], unit='ms', errors='coerce').dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+                try:
+                    df['timestamp'] = pd.to_datetime(df['date'], unit='ms', errors='coerce').dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+                except Exception as e:
+                    logger.error(f"Error converting 'date' to timestamp in {file_path} (trade): {e}")
+                    df['timestamp'] = None
             elif 'timestamp' in df.columns:
-                df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce').dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+                try:
+                    df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce').dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+                except Exception as e:
+                    logger.error(f"Error converting 'timestamp' to timestamp in {file_path} (trade): {e}")
+                    df['timestamp'] = None
             else:
+                logger.warning(f"Neither 'date' nor 'timestamp' column found in {file_path} (trade data).")
                 df['timestamp'] = None
             df['price'] = df.get('price')
             df['quantity'] = df.get('amount', df.get('quantity'))
@@ -229,16 +272,7 @@ def setup_sqlite(timestamp: datetime, date_str: str) -> Optional[str]:
         cursor.execute(create_trades_table_sql)
         cursor.execute(create_ohlcv_table_sql)
         conn.commit()
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='trades'")
-        if not cursor.fetchone():
-            logger.error(f"Failed to create 'trades' table in {sqlite_file}")
-            conn.close()
-            return None
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ohlcv'")
-        if not cursor.fetchone():
-            logger.error(f"Failed to create 'ohlcv' table in {sqlite_file}")
-            conn.close()
-            return None
+        
         logger.info(f"SQLite tables 'trades' and 'ohlcv' confirmed in: {sqlite_file}")
         conn.close()
         return sqlite_file
@@ -360,30 +394,33 @@ def save_data(df: pd.DataFrame) -> None:
                     existing_df = pd.read_csv(csv_file)
                     combined_df = pd.concat([existing_df, df_date], ignore_index=True)
                     # Remove duplicates based on timestamp for OHLCV, tradeId for trades
-                    if df_date['data_type'].iloc[0] == 'ohlcv':
+                    if not combined_df.empty and 'data_type' in combined_df.columns and combined_df['data_type'].iloc[0] == 'ohlcv':
                         combined_df = combined_df.drop_duplicates(subset=['timestamp', 'data_type'], keep='last')
-                    else:
+                    elif not combined_df.empty and 'data_type' in combined_df.columns:
                         combined_df = combined_df.drop_duplicates(subset=['tradeId', 'data_type'], keep='last')
                     combined_df.to_csv(csv_file, index=False)
                     logger.info(f"Updated {csv_file} with {len(df_date)} new records, total {len(combined_df)} records")
                 else:
                     df_date.to_csv(csv_file, index=False)
                     logger.info(f"Saved {len(df_date)} records to new CSV: {csv_file}")
+            except (IOError, pd.errors.EmptyDataError, pd.errors.ParserError) as e:
+                logger.error(f"Error writing/reading CSV {csv_file}: {e}")
             except Exception as e:
-                logger.error(f"Error writing to CSV {csv_file}: {e}")
+                logger.error(f"Unexpected error during CSV handling for {csv_file}: {e}")
             
             # Handle SQLite: Update or insert based on data_type
+            conn = None  # Initialize conn to None
             try:
                 conn = sqlite3.connect(sqlite_file)
                 cursor = conn.cursor()
-                if df_date['data_type'].iloc[0] == 'ohlcv':
+                if not df_date.empty and 'data_type' in df_date.columns and df_date['data_type'].iloc[0] == 'ohlcv':
                     for _, row in df_date.iterrows():
                         cursor.execute("""
                             INSERT OR REPLACE INTO ohlcv (timestamp, open, high, low, close, volume_btc, volume_usd)
                             VALUES (?, ?, ?, ?, ?, ?, ?)
                         """, (row["timestamp"], row["open"], row["high"], row["low"], row["close"], row["volume_btc"], row["volume_usd"]))
                     logger.info(f"Updated {sqlite_file} with {len(df_date)} OHLCV records")
-                else:
+                elif not df_date.empty and 'data_type' in df_date.columns:
                     for _, row in df_date.iterrows():
                         cursor.execute("""
                             INSERT OR IGNORE INTO trades (timestamp, price, quantity, quoteQty, tradeId)
@@ -393,8 +430,10 @@ def save_data(df: pd.DataFrame) -> None:
                 conn.commit()
             except sqlite3.Error as e:
                 logger.error(f"SQLite error writing to {sqlite_file}: {e}")
+            except Exception as e:
+                logger.error(f"Unexpected error during SQLite handling for {sqlite_file}: {e}")
             finally:
-                if 'conn' in locals():
+                if conn:
                     conn.close()
         except Exception as e:
             logger.error(f"Error processing date {date_str}: {e}")
@@ -407,15 +446,20 @@ def get_latest_trade_timestamp() -> datetime:
             conn = sqlite3.connect(file)
             cursor = conn.cursor()
             # Check trades table
-            cursor.execute("SELECT MAX(timestamp) FROM trades")
-            result = cursor.fetchone()[0]
-            if result:
-                ts = datetime.strptime(result, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=TIMEZONE)
-                if ts > latest_timestamp:
-                    latest_timestamp = ts
+            # Check trades table
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='trades'")
+            if cursor.fetchone():
+                cursor.execute("SELECT MAX(timestamp) FROM trades")
+                result = cursor.fetchone()[0]
+                if result:
+                    ts = datetime.strptime(result, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=TIMEZONE)
+                    if ts > latest_timestamp:
+                        latest_timestamp = ts
             # Check ohlcv table
-            cursor.execute("SELECT MAX(timestamp) FROM ohlcv")
-            result = cursor.fetchone()[0]
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ohlcv'")
+            if cursor.fetchone():
+                cursor.execute("SELECT MAX(timestamp) FROM ohlcv")
+                result = cursor.fetchone()[0]
             if result:
                 ts = datetime.strptime(result, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=TIMEZONE)
                 if ts > latest_timestamp:
