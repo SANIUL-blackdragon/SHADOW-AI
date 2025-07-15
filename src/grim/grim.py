@@ -7,6 +7,7 @@ from datetime import datetime, timezone, timedelta
 import logging
 from glob import glob
 import time
+import hashlib
 from typing import Optional, Set
 
 # Configure logging
@@ -32,25 +33,38 @@ TIMEZONE = timezone.utc
 MAX_API_RETRIES = 3
 RETRY_DELAY = 5
 CHECK_INTERVAL = 60
-EARLIEST_TIMESTAMP = datetime(2012, 1, 1, tzinfo=TIMEZONE)  # Start from 2012 for Bitstamp
+EARLIEST_TIMESTAMP = datetime(2012, 1, 1, tzinfo=TIMEZONE)
 RATE_LIMIT_WAIT = 120
-BITFINEX_START_DATE = datetime(2022, 3, 17, 6, 12, tzinfo=TIMEZONE)  # Bitfinex data starts 3/17/2022 6:12:00 AM
+BITFINEX_START_DATE = datetime(2022, 3, 17, 6, 12, tzinfo=TIMEZONE)
 
-# Define dtypes for CSV processing
-CSV_DTYPES: dict[str, str] = {
-    'unix': 'float64',
+# Binance aggregated trade columns (no headers)
+binance_trade_columns = [
+    'agg_trade_id', 'price', 'quantity', 'first_trade_id', 
+    'last_trade_id', 'transact_time', 'is_buyer_maker', 'is_best_match'
+]
+
+# Define dtypes for CSV processing (use numpy types and 'object' for strings)
+CSV_DTYPES = {
+    'unix': np.float64,
     'date': 'object',
-    'open': 'float64',
-    'high': 'float64',
-    'low': 'float64',
-    'close': 'float64',
-    'Volume BTC': 'float64',
-    'Volume USD': 'float64',
+    'symbol': 'object',
+    'open': np.float64,
+    'high': np.float64,
+    'low': np.float64,
+    'close': np.float64,
+    'Volume BTC': np.float64,
+    'Volume USD': np.float64,
     'id': 'object',
     'tradeId': 'object',
-    'price': 'float64',
-    'amount': 'float64',
-    'quantity': 'float64'
+    'price': np.float64,
+    'amount': np.float64,
+    'quantity': np.float64,
+    'agg_trade_id': 'object',
+    'transact_time': np.float64,
+    'first_trade_id': 'object',
+    'last_trade_id': 'object',
+    'is_buyer_maker': 'object',
+    'is_best_match': 'object'
 }
 
 def get_all_csv_files(directory: str) -> list:
@@ -59,52 +73,116 @@ def get_all_csv_files(directory: str) -> list:
     for root, _, files in os.walk(directory):
         for file in files:
             if file.endswith(".csv"):
-                csv_files.append(os.path.join(root, file))
+                full_path = os.path.join(root, file)
+                csv_files.append(full_path)
+                logger.debug(f"Found CSV file: {full_path}")
     return csv_files
 
 def get_existing_dates() -> Set[str]:
     """Get set of dates (YYYYMMDD) present in SQLite or CSV files."""
     existing_dates = set()
-    # Check SQLite files
     sqlite_files = glob(os.path.join(OUTPUT_BASE_DIR, "*/chart/sqlite/*.db"))
     for file in sqlite_files:
         date_str = os.path.basename(file).split('.')[0]
         if len(date_str) == 8 and date_str.isdigit():
             existing_dates.add(date_str)
-    # Check CSV files
     csv_files = glob(os.path.join(OUTPUT_BASE_DIR, "*/chart/csv/*.csv"))
     for file in csv_files:
         date_str = os.path.basename(file).split('.')[0]
         if len(date_str) == 8 and date_str.isdigit():
             existing_dates.add(date_str)
+    logger.debug(f"Existing dates: {sorted(existing_dates)}")
     return existing_dates
 
-def check_csv_date_range(file_path: str) -> tuple[Optional[datetime], Optional[datetime]]:
-    """Check the date range of a CSV file based on its unix timestamps."""
+def detect_csv_format(file_path: str) -> tuple[bool, Optional[list], bool]:
+    """Detect if CSV has headers, return column names, and identify if OHLCV."""
     try:
-        df = pd.read_csv(file_path, usecols=['unix'], dtype={'unix': 'float64'}, low_memory=False)
-        if 'unix' not in df.columns or df['unix'].isna().all():
-            logger.warning(f"Skipping {file_path}: 'unix' column missing or all NaN.")
-            return None, None
-        
-        # Convert to datetime, coercing errors will turn invalid dates into NaT
-        df['unix_datetime'] = pd.to_datetime(df['unix'], unit='ms', errors='coerce', utc=True)
-        
-        # Drop rows where timestamp conversion failed
-        df = df.dropna(subset=['unix_datetime'])
-        
-        if df.empty:
-            logger.warning(f"Skipping {file_path}: No valid timestamps after parsing.")
-            return None, None
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                first_line = f.readline().strip().split(',')
+        except UnicodeDecodeError:
+            with open(file_path, 'r', encoding='latin1') as f:
+                first_line = f.readline().strip().split(',')
+                logger.warning(f"File {file_path} used latin1 encoding fallback")
+        file_size = os.path.getsize(file_path)
+        logger.debug(f"File {file_path} size: {file_size} bytes")
+        is_header = any(
+            s.lower() in ['unix', 'date', 'symbol', 'open', 'price', 'transact_time', 'close', 'Volume BTC'] 
+            for s in first_line
+        )
+        is_ohlcv = is_header and all(col in first_line for col in ['open', 'high', 'low', 'close'])
+        if 'aggTrades' in os.path.basename(file_path) and not is_header:
+            return False, binance_trade_columns, False
+        logger.debug(f"CSV {file_path} first line: {first_line}")
+        return is_header, None if is_header else binance_trade_columns, is_ohlcv
+    except FileNotFoundError:
+        logger.error(f"File not found: {file_path}")
+        return True, None, False
+    except Exception as e:
+        logger.error(f"Error detecting CSV format for {file_path}: {e}")
+        return True, None, False
 
-        min_ts = df['unix_datetime'].min()
-        max_ts = df['unix_datetime'].max()
+def check_csv_date_range(file_path: str) -> tuple[Optional[datetime], Optional[datetime]]:
+    """Check the date range of a CSV file based on its timestamp column."""
+    try:
+        has_headers, column_names, is_ohlcv = detect_csv_format(file_path)
+        timestamp_col = None
+        if 'aggTrades' in os.path.basename(file_path) and not has_headers:
+            df = pd.read_csv(
+                file_path, header=None, names=binance_trade_columns,
+                dtype=CSV_DTYPES, low_memory=False, engine='python', encoding='utf-8'
+            )
+            logger.debug(f"Headerless CSV {file_path} shape: {df.shape}")
+            logger.debug(f"First 3 rows:\n{df.head(3).to_string()}")
+            timestamp_col = 'transact_time'
+        else:
+            for col in ['unix', 'date', 'transact_time']:
+                try:
+                    df = pd.read_csv(
+                        file_path, usecols=[col], header=0 if has_headers else None,
+                        dtype={col: np.float64}, low_memory=False, engine='python', encoding='utf-8'
+                    )
+                    timestamp_col = col
+                    break
+                except ValueError:
+                    continue
+            if not timestamp_col:
+                logger.warning(f"No valid timestamp column ('unix', 'date', or 'transact_time') in {file_path}")
+                return None, None
+        
+        if timestamp_col not in df.columns or df[timestamp_col].isna().all():
+            logger.warning(f"'{timestamp_col}' column missing or all NaN in {file_path}")
+            return None, None
+        
+        for unit in ['ms', 's']:
+            try:
+                df['datetime'] = pd.to_datetime(df[timestamp_col], unit=unit, errors='coerce', utc=True)
+                if not df['datetime'].isna().all():
+                    break
+            except Exception as e:
+                logger.debug(f"Failed to parse timestamps with unit={unit} in {file_path}: {e}")
+                continue
+        else:
+            logger.warning(f"Could not parse timestamps in {file_path}")
+            return None, None
+        
+        df = df.dropna(subset=['datetime'])
+        if df.empty:
+            logger.warning(f"No valid timestamps in {file_path}")
+            return None, None
+        
+        min_ts = df['datetime'].min()
+        max_ts = df['datetime'].max()
+        if min_ts.year < 2000 or max_ts.year < 2000:
+            logger.warning(f"Invalid date range in {file_path}: {min_ts} to {max_ts}")
+            return None, None
+        logger.info(f"Date range for {file_path}: {min_ts} to {max_ts}")
         return min_ts, max_ts
     except FileNotFoundError:
         logger.error(f"File not found: {file_path}")
         return None, None
     except pd.errors.EmptyDataError:
-        logger.warning(f"Skipping {file_path}: File is empty.")
+        logger.warning(f"Skipping {file_path}: File is empty")
         return None, None
     except pd.errors.ParserError as e:
         logger.error(f"Parser error reading {file_path}: {e}")
@@ -113,125 +191,214 @@ def check_csv_date_range(file_path: str) -> tuple[Optional[datetime], Optional[d
         logger.error(f"Unexpected error checking date range for {file_path}: {e}")
         return None, None
 
+def migrate_legacy_tables(sqlite_file: str) -> None:
+    """Merge legacy 'trades' and 'ohlcv' tables into 'market_data'."""
+    try:
+        conn = sqlite3.connect(sqlite_file)
+        cursor = conn.cursor()
+        
+        # Create market_data table
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS market_data (
+                timestamp TEXT,
+                price REAL,
+                quantity REAL,
+                quoteQty REAL,
+                tradeId TEXT,
+                symbol TEXT,
+                PRIMARY KEY (timestamp, symbol, tradeId)
+            )
+        """)
+        
+        # Migrate 'trades' table
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='trades'")
+        if cursor.fetchone():
+            logger.info(f"Migrating legacy 'trades' table in {sqlite_file}")
+            cursor.execute("SELECT timestamp, price, quantity, quoteQty, tradeId, symbol FROM trades")
+            trades_data = cursor.fetchall()
+            for row in trades_data:
+                cursor.execute("""
+                    INSERT OR REPLACE INTO market_data (
+                        timestamp, price, quantity, quoteQty, tradeId, symbol
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                """, row)
+            logger.info(f"Migrated {len(trades_data)} records from 'trades' to 'market_data' in {sqlite_file}")
+        
+        # Migrate 'ohlcv' table
+        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ohlcv'")
+        if cursor.fetchone():
+            logger.info(f"Migrating legacy 'ohlcv' table in {sqlite_file}")
+            cursor.execute("SELECT unix, close, `Volume BTC` FROM ohlcv")
+            ohlcv_data = cursor.fetchall()
+            for idx, row in enumerate(ohlcv_data):
+                timestamp_ms, close, volume_btc = row
+                timestamp = datetime.fromtimestamp(timestamp_ms / 1000, tz=TIMEZONE).strftime("%Y-%m-%dT%H:%M:%SZ")
+                price = float(close)
+                quantity = float(volume_btc) if volume_btc is not None else 0.0
+                quote_qty = price * quantity
+                # Generate synthetic tradeId for OHLCV
+                trade_id = hashlib.md5(f"{timestamp}_{idx}".encode()).hexdigest()
+                cursor.execute("""
+                    INSERT OR REPLACE INTO market_data (
+                        timestamp, price, quantity, quoteQty, tradeId, symbol
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                """, (timestamp, price, quantity, quote_qty, trade_id, SYMBOL))
+            logger.info(f"Migrated {len(ohlcv_data)} records from 'ohlcv' to 'market_data' in {sqlite_file}")
+        
+        conn.commit()
+        conn.close()
+    except sqlite3.Error as e:
+        logger.error(f"Error migrating legacy tables in {sqlite_file}: {e}")
+    except Exception as e:
+        logger.error(f"Unexpected error migrating {sqlite_file}: {e}")
+
 def process_csv_file(file_path: str, missing_dates: Set[str]) -> None:
-    """Process a single CSV file (OHLCV or trade data) if it covers missing dates."""
+    """Process a single CSV file (trade or OHLCV) into unified format."""
     try:
         min_ts, max_ts = check_csv_date_range(file_path)
         if min_ts is None or max_ts is None:
             logger.warning(f"Skipping {file_path}: Invalid date range")
             return
         
-        # Extract dates in the CSV's range
         csv_dates = set()
         current_ts = min_ts
         while current_ts <= max_ts:
             csv_dates.add(current_ts.strftime("%Y%m%d"))
             current_ts += timedelta(days=1)
         
-        # Check if CSV covers any missing dates
         if not csv_dates.intersection(missing_dates):
             logger.info(f"Skipping {file_path}: No missing dates in range {min_ts} to {max_ts}")
             return
         
+        has_headers, column_names, is_ohlcv = detect_csv_format(file_path)
         try:
-            df = pd.read_csv(file_path, dtype=CSV_DTYPES, low_memory=False)
-        except pd.errors.EmptyDataError:
-            logger.warning(f"Skipping {file_path}: File is empty.")
-            return
-        except pd.errors.ParserError as e:
-            logger.error(f"Parser error reading {file_path}: {e}")
-            return
-        except Exception as e:
-            logger.error(f"Error reading CSV {file_path}: {e}")
-            return
-        
-        # Determine if the CSV is OHLCV or trade data
-        is_ohlcv = all(col in df.columns for col in ['open', 'high', 'low', 'close'])
+            if 'aggTrades' in os.path.basename(file_path) and not has_headers:
+                df = pd.read_csv(
+                    file_path, header=None, names=binance_trade_columns,
+                    dtype=CSV_DTYPES, low_memory=False, engine='python', encoding='utf-8'
+                )
+            else:
+                df = pd.read_csv(
+                    file_path, header=0 if has_headers else None,
+                    names=column_names if not has_headers else None,
+                    dtype=CSV_DTYPES, low_memory=False, engine='python', encoding='utf-8'
+                )
+        except UnicodeDecodeError:
+            df = pd.read_csv(
+                file_path, header=0 if has_headers else None,
+                names=column_names if not has_headers else None,
+                dtype=CSV_DTYPES, low_memory=False, engine='python', encoding='latin1'
+            )
+            logger.warning(f"File {file_path} used latin1 encoding fallback")
+        logger.debug(f"Loaded CSV {file_path} with columns: {df.columns.tolist()}")
+        logger.debug(f"First 3 rows:\n{df.head(3).to_string()}")
         
         if is_ohlcv:
-            # Map OHLCV columns
-            try:
-                df['timestamp'] = pd.to_datetime(df['unix'], unit='ms', errors='coerce').dt.strftime('%Y-%m-%dT%H:%M:%SZ')
-            except Exception as e:
-                logger.error(f"Error converting 'unix' to timestamp in {file_path} (OHLCV): {e}")
-                df['timestamp'] = None
-            df['open'] = df['open']
-            df['high'] = df['high']
-            df['low'] = df['low']
-            df['close'] = df['close']
-            df['volume_btc'] = df['Volume BTC']
-            df['volume_usd'] = df.get('Volume USD', df['close'] * df['volume_btc'])
-            df['data_type'] = 'ohlcv'
-            df = df[['timestamp', 'open', 'high', 'low', 'close', 'volume_btc', 'volume_usd', 'data_type']]
-            # Filter for missing dates
-            df['date_str'] = df['timestamp'].str[:10].str.replace("-", "")
-            df = df[df['date_str'].isin(missing_dates)]
-            df = df.drop(columns=['date_str'])
-        else:
-            # Map trade data columns
-            df['tradeId'] = df.get('id', df.get('tradeId'))
-            if 'date' in df.columns:
+            # Process OHLCV data
+            for unit in ['ms', 's']:
                 try:
-                    df['timestamp'] = pd.to_datetime(df['date'], unit='ms', errors='coerce').dt.strftime('%Y-%m-%dT%H:%M:%SZ')
-                except Exception as e:
-                    logger.error(f"Error converting 'date' to timestamp in {file_path} (trade): {e}")
-                    df['timestamp'] = None
-            elif 'timestamp' in df.columns:
-                try:
-                    df['timestamp'] = pd.to_datetime(df['timestamp'], errors='coerce').dt.strftime('%Y-%m-%dT%H:%M:%SZ')
-                except Exception as e:
-                    logger.error(f"Error converting 'timestamp' to timestamp in {file_path} (trade): {e}")
-                    df['timestamp'] = None
+                    df['timestamp'] = pd.to_datetime(df['unix'], unit=unit, errors='coerce', utc=True).dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+                    if not df['timestamp'].isna().all():
+                        break
+                except Exception:
+                    continue
             else:
-                logger.warning(f"Neither 'date' nor 'timestamp' column found in {file_path} (trade data).")
+                logger.warning(f"No valid timestamp in {file_path}")
                 df['timestamp'] = None
-            df['price'] = df.get('price')
-            df['quantity'] = df.get('amount', df.get('quantity'))
+            df['price'] = df['close']
+            df['quantity'] = df.get('Volume BTC', 0.0)
             df['quoteQty'] = df['price'] * df['quantity']
-            df['data_type'] = 'trade'
-            df = df[['timestamp', 'price', 'quantity', 'quoteQty', 'tradeId', 'data_type']]
-            # Filter for missing dates
-            df['date_str'] = df['timestamp'].str[:10].str.replace("-", "")
-            df = df[df['date_str'].isin(missing_dates)]
-            df = df.drop(columns=['date_str'])
+            df['symbol'] = SYMBOL
+            # Generate synthetic tradeId
+            df['tradeId'] = [hashlib.md5(f"{ts}_{idx}".encode()).hexdigest() for idx, ts in enumerate(df['timestamp'])]
+        else:
+            # Process trade data
+            is_binance_trade = 'aggTrades' in os.path.basename(file_path)
+            if is_binance_trade:
+                for unit in ['ms', 's']:
+                    try:
+                        df['timestamp'] = pd.to_datetime(df['transact_time'], unit=unit, errors='coerce', utc=True).dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+                        if not df['timestamp'].isna().all():
+                            break
+                    except Exception:
+                        continue
+                else:
+                    logger.warning(f"No valid timestamp in {file_path}")
+                    df['timestamp'] = None
+                df['tradeId'] = df['agg_trade_id']
+                df['price'] = df['price']
+                df['quantity'] = df['quantity']
+                df['quoteQty'] = df['price'] * df['quantity']
+                df['symbol'] = SYMBOL
+            else:
+                df['tradeId'] = df.get('id', df.get('tradeId'))
+                timestamp_col = 'date' if 'date' in df.columns else 'timestamp' if 'timestamp' in df.columns else None
+                if timestamp_col:
+                    for unit in ['ms', 's']:
+                        try:
+                            df['timestamp'] = pd.to_datetime(df[timestamp_col], unit=unit, errors='coerce', utc=True).dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+                            if not df['timestamp'].isna().all():
+                                break
+                        except Exception:
+                            continue
+                    else:
+                        logger.warning(f"No valid timestamp in {file_path}")
+                        df['timestamp'] = None
+                else:
+                    logger.warning(f"No timestamp column in {file_path}")
+                    df['timestamp'] = None
+                df['price'] = df.get('price')
+                df['quantity'] = df.get('amount', df.get('quantity'))
+                df['quoteQty'] = df['price'] * df['quantity']
+                df['symbol'] = df.get('symbol', SYMBOL)
         
-        df = df.dropna(subset=['timestamp'])
+        df = df[['timestamp', 'price', 'quantity', 'quoteQty', 'tradeId', 'symbol']]
+        df = df.dropna(subset=['timestamp', 'price', 'quantity', 'tradeId'])
+        df['date_str'] = df['timestamp'].str[:10].str.replace("-", "")
+        df = df[df['date_str'].isin(missing_dates)]
+        df = df.drop(columns=['date_str'])
+        
         if df.empty:
             logger.warning(f"No valid data in {file_path} for missing dates")
             return
         
         save_data(df)
-        logger.info(f"Processed {len(df)} records from {file_path} for missing dates")
+        logger.info(f"Processed {len(df)} records from {file_path} (OHLCV={is_ohlcv})")
+    except FileNotFoundError:
+        logger.error(f"File not found: {file_path}")
+    except pd.errors.EmptyDataError:
+        logger.warning(f"Skipping {file_path}: File is empty")
+    except pd.errors.ParserError as e:
+        logger.error(f"Parser error reading {file_path}: {e}")
     except Exception as e:
-        logger.error(f"Error processing {file_path}: {e}")
+        logger.error(f"Unexpected error processing {file_path}: {e}")
 
 def process_csv_files(missing_dates: Set[str]) -> None:
-    """Process CSV files in ZIP_DATA_DIR that cover missing dates, prioritizing Bitfinex for dates >= 3/17/2022."""
+    """Process CSV files in ZIP_DATA_DIR for missing dates."""
     csv_files = get_all_csv_files(ZIP_DATA_DIR)
     if not csv_files:
         logger.warning("No CSV files found in ZIP_DATA_DIR")
         return
     
-    # Prioritize Bitfinex for dates >= 3/17/2022
     bitfinex_files = [f for f in csv_files if 'Bitfinex' in os.path.basename(f)]
     other_files = [f for f in csv_files if 'Bitfinex' not in os.path.basename(f)]
     
-    # Process Bitfinex files first for dates >= 3/17/2022
+    logger.info(f"Processing Bitfinex files: {bitfinex_files}")
     for file_path in bitfinex_files:
         min_ts, max_ts = check_csv_date_range(file_path)
-        if min_ts is None or max_ts is None:
-            continue
-        if max_ts >= BITFINEX_START_DATE:
+        if min_ts and max_ts and max_ts >= BITFINEX_START_DATE:
             process_csv_file(file_path, missing_dates)
     
-    # Process other files (e.g., Bitstamp) for all missing dates
+    logger.info(f"Processing other files: {other_files}")
     for file_path in other_files:
         process_csv_file(file_path, missing_dates)
 
 def get_month_dir(timestamp: datetime) -> str:
+    """Get directory for a given timestamp's year and month."""
     return os.path.join(OUTPUT_BASE_DIR, timestamp.strftime("%Y%m"))
 
 def setup_directories(timestamp: datetime) -> None:
+    """Create necessary directories for storing data."""
     month_dir = get_month_dir(timestamp)
     for sub_dir in ["chart/csv", "chart/sqlite"]:
         dir_path = os.path.join(month_dir, sub_dir)
@@ -242,45 +409,35 @@ def setup_directories(timestamp: datetime) -> None:
             logger.error(f"Error creating directory {dir_path}: {e}")
 
 def setup_sqlite(timestamp: datetime, date_str: str) -> Optional[str]:
+    """Set up SQLite database for a given date and migrate legacy tables."""
     month_dir = get_month_dir(timestamp)
     sqlite_file = os.path.join(month_dir, "chart", "sqlite", f"{date_str}.db")
-    create_trades_table_sql = """
-        CREATE TABLE IF NOT EXISTS trades (
+    create_table_sql = """
+        CREATE TABLE IF NOT EXISTS market_data (
             timestamp TEXT,
             price REAL,
             quantity REAL,
             quoteQty REAL,
             tradeId TEXT,
-            PRIMARY KEY (tradeId)
-        )
-    """
-    create_ohlcv_table_sql = """
-        CREATE TABLE IF NOT EXISTS ohlcv (
-            timestamp TEXT,
-            open REAL,
-            high REAL,
-            low REAL,
-            close REAL,
-            volume_btc REAL,
-            volume_usd REAL,
-            PRIMARY KEY (timestamp)
+            symbol TEXT,
+            PRIMARY KEY (timestamp, symbol, tradeId)
         )
     """
     try:
+        migrate_legacy_tables(sqlite_file)
         conn = sqlite3.connect(sqlite_file)
         cursor = conn.cursor()
-        cursor.execute(create_trades_table_sql)
-        cursor.execute(create_ohlcv_table_sql)
+        cursor.execute(create_table_sql)
         conn.commit()
-        
-        logger.info(f"SQLite tables 'trades' and 'ohlcv' confirmed in: {sqlite_file}")
         conn.close()
+        logger.info(f"SQLite table 'market_data' created in: {sqlite_file}")
         return sqlite_file
     except sqlite3.Error as e:
-        logger.error(f"SQLite error during setup for {sqlite_file}: {e}")
+        logger.error(f"SQLite error for {sqlite_file}: {e}")
         return None
 
 def fetch_historical_trades(start_time: datetime, end_time: datetime) -> Optional[pd.DataFrame]:
+    """Fetch historical trades from Binance API."""
     params = {
         "symbol": SYMBOL,
         "limit": 1000,
@@ -321,15 +478,27 @@ def fetch_historical_trades(start_time: datetime, end_time: datetime) -> Optiona
                         "quantity": quantity,
                         "quoteQty": price * quantity,
                         "tradeId": str(trade["a"]),
-                        "data_type": "trade"
+                        "symbol": SYMBOL
                     })
                 except (ValueError, KeyError) as e:
                     logger.error(f"Error processing trade {trade}: {e}")
                     continue
             logger.info(f"Fetched {len(data)} trades from {start_time} to {end_time}")
             return pd.DataFrame(trades)
-        except (requests.RequestException, ValueError, KeyError) as e:
-            logger.warning(f"Error fetching trades on attempt {attempt}: {e}")
+        except requests.RequestException as e:
+            logger.warning(f"Request error on attempt {attempt}: {e}")
+            if attempt == MAX_API_RETRIES:
+                logger.error(f"Max retries reached for {start_time} to {end_time}")
+                return None
+            time.sleep(RETRY_DELAY)
+        except ValueError as e:
+            logger.warning(f"Value error on attempt {attempt}: {e}")
+            if attempt == MAX_API_RETRIES:
+                logger.error(f"Max retries reached for {start_time} to {end_time}")
+                return None
+            time.sleep(RETRY_DELAY)
+        except KeyError as e:
+            logger.warning(f"Key error on attempt {attempt}: {e}")
             if attempt == MAX_API_RETRIES:
                 logger.error(f"Max retries reached for {start_time} to {end_time}")
                 return None
@@ -337,6 +506,7 @@ def fetch_historical_trades(start_time: datetime, end_time: datetime) -> Optiona
     return None
 
 def consolidate_scale_data(missing_dates: Set[str]) -> Optional[pd.DataFrame]:
+    """Consolidate scale.py CSV data (trade or OHLCV) for missing dates."""
     scale_files = glob(os.path.join(SCALE_DATA_DIR, "*/csv/*.csv"))
     if not scale_files:
         logger.warning("No scale.py CSV files found")
@@ -344,32 +514,117 @@ def consolidate_scale_data(missing_dates: Set[str]) -> Optional[pd.DataFrame]:
     dfs = []
     for file in scale_files:
         try:
-            df = pd.read_csv(file, dtype=CSV_DTYPES, low_memory=False)
-            if not all(col in df.columns for col in ["timestamp", "price", "quantity", "tradeId"]):
-                logger.warning(f"Missing required columns in {file}")
-                continue
-            df['data_type'] = 'trade'
+            has_headers, column_names, is_ohlcv = detect_csv_format(file)
+            try:
+                if 'aggTrades' in os.path.basename(file) and not has_headers:
+                    df = pd.read_csv(
+                        file, header=None, names=binance_trade_columns,
+                        dtype=CSV_DTYPES, low_memory=False, engine='python', encoding='utf-8'
+                    )
+                else:
+                    df = pd.read_csv(
+                        file, header=0 if has_headers else None,
+                        names=column_names if not has_headers else None,
+                        dtype=CSV_DTYPES, low_memory=False, engine='python', encoding='utf-8'
+                    )
+            except UnicodeDecodeError:
+                df = pd.read_csv(
+                    file, header=0 if has_headers else None,
+                    names=column_names if not has_headers else None,
+                    dtype=CSV_DTYPES, low_memory=False, engine='python', encoding='latin1'
+                )
+                logger.warning(f"File {file} used latin1 encoding fallback")
+            logger.debug(f"Loaded scale CSV {file} with columns: {df.columns.tolist()}")
+            logger.debug(f"First 3 rows:\n{df.head(3).to_string()}")
+            
+            if is_ohlcv:
+                # Process OHLCV data
+                for unit in ['ms', 's']:
+                    try:
+                        df['timestamp'] = pd.to_datetime(df['unix'], unit=unit, errors='coerce', utc=True).dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+                        if not df['timestamp'].isna().all():
+                            break
+                    except Exception:
+                        continue
+                else:
+                    logger.warning(f"No valid timestamp in {file}")
+                    df['timestamp'] = None
+                df['price'] = df['close']
+                df['quantity'] = df.get('Volume BTC', 0.0)
+                df['quoteQty'] = df['price'] * df['quantity']
+                df['symbol'] = SYMBOL
+                # Generate synthetic tradeId
+                df['tradeId'] = [hashlib.md5(f"{ts}_{idx}".encode()).hexdigest() for idx, ts in enumerate(df['timestamp'])]
+            else:
+                # Process trade data
+                if 'aggTrades' in os.path.basename(file):
+                    for unit in ['ms', 's']:
+                        try:
+                            df['timestamp'] = pd.to_datetime(df['transact_time'], unit=unit, errors='coerce', utc=True).dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+                            if not df['timestamp'].isna().all():
+                                break
+                        except Exception:
+                            continue
+                    else:
+                        logger.warning(f"No valid timestamp in {file}")
+                        df['timestamp'] = None
+                    df['tradeId'] = df['agg_trade_id']
+                    df['price'] = df['price']
+                    df['quantity'] = df['quantity']
+                    df['quoteQty'] = df['price'] * df['quantity']
+                    df['symbol'] = SYMBOL
+                else:
+                    df['tradeId'] = df.get('id', df.get('tradeId'))
+                    timestamp_col = 'date' if 'date' in df.columns else 'timestamp' if 'timestamp' in df.columns else None
+                    if timestamp_col:
+                        for unit in ['ms', 's']:
+                            try:
+                                df['timestamp'] = pd.to_datetime(df[timestamp_col], unit=unit, errors='coerce', utc=True).dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+                                if not df['timestamp'].isna().all():
+                                    break
+                            except Exception:
+                                continue
+                        else:
+                            logger.warning(f"No valid timestamp in {file}")
+                            df['timestamp'] = None
+                    else:
+                        logger.warning(f"No timestamp column in {file}")
+                        df['timestamp'] = None
+                    df['price'] = df.get('price')
+                    df['quantity'] = df.get('amount', df.get('quantity'))
+                    df['quoteQty'] = df['price'] * df['quantity']
+                    df['symbol'] = df.get('symbol', SYMBOL)
+            
+            df = df[['timestamp', 'price', 'quantity', 'quoteQty', 'tradeId', 'symbol']]
+            df = df.dropna(subset=['timestamp', 'price', 'quantity', 'tradeId'])
             df['date_str'] = pd.to_datetime(df['timestamp'], errors='coerce').dt.strftime("%Y%m%d")
             df = df[df['date_str'].isin(missing_dates)]
             df = df.drop(columns=['date_str'])
-            dfs.append(df)
+            if not df.empty:
+                dfs.append(df)
+        except FileNotFoundError:
+            logger.error(f"File not found: {file}")
+        except pd.errors.EmptyDataError:
+            logger.warning(f"Skipping {file}: File is empty")
+        except pd.errors.ParserError as e:
+            logger.error(f"Parser error reading {file}: {e}")
         except Exception as e:
-            logger.error(f"Error reading scale CSV {file}: {e}")
+            logger.error(f"Unexpected error reading scale CSV {file}: {e}")
     if dfs:
         combined_df = pd.concat(dfs, ignore_index=True)
         combined_df["timestamp"] = pd.to_datetime(combined_df["timestamp"], errors='coerce')
         combined_df = combined_df.dropna(subset=["timestamp"])
-        combined_df = combined_df.sort_values("timestamp").drop_duplicates(subset=["tradeId"])
+        combined_df = combined_df.sort_values("timestamp").drop_duplicates(subset=["timestamp", "symbol", "tradeId"], keep='last')
         combined_df["timestamp"] = combined_df["timestamp"].dt.strftime("%Y-%m-%dT%H:%M:%SZ")
-        combined_df["quoteQty"] = combined_df["price"] * combined_df["quantity"]
         if combined_df.empty:
             logger.warning("No scale.py data for missing dates")
             return None
-        logger.info(f"Consolidated {len(combined_df)} scale.py records for missing dates")
+        logger.info(f"Consolidated {len(combined_df)} scale.py records")
         return combined_df
     return None
 
 def save_data(df: pd.DataFrame) -> None:
+    """Save data to CSV and SQLite, handling duplicates."""
     if df.empty or df["timestamp"].isnull().all():
         logger.warning("No valid data to save")
         return
@@ -388,16 +643,15 @@ def save_data(df: pd.DataFrame) -> None:
                 logger.error(f"Skipping save due to SQLite setup failure for {date_str}")
                 continue
             
-            # Handle CSV: Append to existing or create new, remove duplicates
             try:
                 if os.path.exists(csv_file):
-                    existing_df = pd.read_csv(csv_file)
+                    try:
+                        existing_df = pd.read_csv(csv_file, dtype=CSV_DTYPES, engine='python', encoding='utf-8', errors='ignore')
+                    except UnicodeDecodeError:
+                        existing_df = pd.read_csv(csv_file, dtype=CSV_DTYPES, engine='python', encoding='latin1')
+                        logger.warning(f"CSV {csv_file} used latin1 encoding fallback")
                     combined_df = pd.concat([existing_df, df_date], ignore_index=True)
-                    # Remove duplicates based on timestamp for OHLCV, tradeId for trades
-                    if not combined_df.empty and 'data_type' in combined_df.columns and combined_df['data_type'].iloc[0] == 'ohlcv':
-                        combined_df = combined_df.drop_duplicates(subset=['timestamp', 'data_type'], keep='last')
-                    elif not combined_df.empty and 'data_type' in combined_df.columns:
-                        combined_df = combined_df.drop_duplicates(subset=['tradeId', 'data_type'], keep='last')
+                    combined_df = combined_df.drop_duplicates(subset=['timestamp', 'symbol', 'tradeId'], keep='last')
                     combined_df.to_csv(csv_file, index=False)
                     logger.info(f"Updated {csv_file} with {len(df_date)} new records, total {len(combined_df)} records")
                 else:
@@ -405,65 +659,52 @@ def save_data(df: pd.DataFrame) -> None:
                     logger.info(f"Saved {len(df_date)} records to new CSV: {csv_file}")
             except (IOError, pd.errors.EmptyDataError, pd.errors.ParserError) as e:
                 logger.error(f"Error writing/reading CSV {csv_file}: {e}")
-            except Exception as e:
-                logger.error(f"Unexpected error during CSV handling for {csv_file}: {e}")
             
-            # Handle SQLite: Update or insert based on data_type
-            conn = None  # Initialize conn to None
             try:
                 conn = sqlite3.connect(sqlite_file)
                 cursor = conn.cursor()
-                if not df_date.empty and 'data_type' in df_date.columns and df_date['data_type'].iloc[0] == 'ohlcv':
-                    for _, row in df_date.iterrows():
-                        cursor.execute("""
-                            INSERT OR REPLACE INTO ohlcv (timestamp, open, high, low, close, volume_btc, volume_usd)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
-                        """, (row["timestamp"], row["open"], row["high"], row["low"], row["close"], row["volume_btc"], row["volume_usd"]))
-                    logger.info(f"Updated {sqlite_file} with {len(df_date)} OHLCV records")
-                elif not df_date.empty and 'data_type' in df_date.columns:
-                    for _, row in df_date.iterrows():
-                        cursor.execute("""
-                            INSERT OR IGNORE INTO trades (timestamp, price, quantity, quoteQty, tradeId)
-                            VALUES (?, ?, ?, ?, ?)
-                        """, (row["timestamp"], row["price"], row["quantity"], row["quoteQty"], row["tradeId"]))
-                    logger.info(f"Updated {sqlite_file} with {len(df_date)} trade records")
+                for _, row in df_date.iterrows():
+                    cursor.execute("""
+                        INSERT OR REPLACE INTO market_data (
+                            timestamp, price, quantity, quoteQty, tradeId, symbol
+                        ) VALUES (?, ?, ?, ?, ?, ?)
+                    """, (
+                        row["timestamp"], row["price"], row["quantity"], row["quoteQty"],
+                        row["tradeId"], row["symbol"]
+                    ))
                 conn.commit()
+                logger.info(f"Updated {sqlite_file} with {len(df_date)} records")
             except sqlite3.Error as e:
                 logger.error(f"SQLite error writing to {sqlite_file}: {e}")
-            except Exception as e:
-                logger.error(f"Unexpected error during SQLite handling for {sqlite_file}: {e}")
             finally:
                 if conn:
                     conn.close()
         except Exception as e:
             logger.error(f"Error processing date {date_str}: {e}")
 
-def get_latest_trade_timestamp() -> datetime:
+def get_latest_timestamp() -> datetime:
+    """Get the latest timestamp from SQLite databases."""
     sqlite_files = glob(os.path.join(OUTPUT_BASE_DIR, "*/chart/sqlite/*.db"))
     latest_timestamp = EARLIEST_TIMESTAMP
     for file in sqlite_files:
         try:
             conn = sqlite3.connect(file)
             cursor = conn.cursor()
-            # Check trades table
-            # Check trades table
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='trades'")
-            if cursor.fetchone():
-                cursor.execute("SELECT MAX(timestamp) FROM trades")
-                result = cursor.fetchone()[0]
-                if result:
-                    ts = datetime.strptime(result, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=TIMEZONE)
-                    if ts > latest_timestamp:
-                        latest_timestamp = ts
-            # Check ohlcv table
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ohlcv'")
-            if cursor.fetchone():
-                cursor.execute("SELECT MAX(timestamp) FROM ohlcv")
-                result = cursor.fetchone()[0]
-            if result:
-                ts = datetime.strptime(result, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=TIMEZONE)
-                if ts > latest_timestamp:
-                    latest_timestamp = ts
+            for table in ['market_data', 'trades', 'ohlcv']:
+                cursor.execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table}'")
+                if cursor.fetchone():
+                    if table == 'ohlcv':
+                        cursor.execute("SELECT MAX(unix) FROM ohlcv")
+                        result = cursor.fetchone()[0]
+                        if result:
+                            ts = datetime.fromtimestamp(result / 1000, tz=TIMEZONE)
+                            latest_timestamp = max(latest_timestamp, ts)
+                    else:
+                        cursor.execute(f"SELECT MAX(timestamp) FROM {table}")
+                        result = cursor.fetchone()[0]
+                        if result:
+                            ts = datetime.strptime(result, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=TIMEZONE)
+                            latest_timestamp = max(latest_timestamp, ts)
             conn.close()
         except sqlite3.Error as e:
             logger.error(f"Error querying timestamp from {file}: {e}")
@@ -471,9 +712,9 @@ def get_latest_trade_timestamp() -> datetime:
     return latest_timestamp
 
 def main() -> None:
+    """Main loop for G.R.I.M."""
     logger.info("Starting G.R.I.M. Press Ctrl+C to stop.")
     
-    # Test API connectivity
     try:
         test_response = requests.get(PING_URL, timeout=5)
         logger.info(f"Binance API ping: {test_response.status_code}")
@@ -484,7 +725,6 @@ def main() -> None:
     
     while True:
         try:
-            # Get missing dates from SQLite and CSV files
             existing_dates = get_existing_dates()
             start_date = EARLIEST_TIMESTAMP
             end_date = datetime.now(TIMEZONE)
@@ -494,19 +734,15 @@ def main() -> None:
                 all_dates.add(current_date.strftime("%Y%m%d"))
                 current_date += timedelta(days=1)
             missing_dates = all_dates - existing_dates
-            if not missing_dates:
-                logger.info("No missing dates in SQLite or CSV files")
+            logger.info(f"Missing dates: {sorted(missing_dates)}")
             
-            # Process CSV files from ZIP_DATA_DIR for missing dates
             process_csv_files(missing_dates)
             
-            # Consolidate scale.py data for missing dates
             scale_df = consolidate_scale_data(missing_dates)
             if scale_df is not None and not scale_df.empty:
                 save_data(scale_df)
             
-            # Fetch historical trades
-            start_time = get_latest_trade_timestamp()
+            start_time = get_latest_timestamp()
             end_time = datetime.now(TIMEZONE)
             total_seconds = (end_time - start_time).total_seconds()
             if total_seconds > 0:

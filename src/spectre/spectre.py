@@ -105,15 +105,39 @@ class Spectre:
         """Checks if a site has new content."""
         page = await self.browser.new_page()
         try:
-            await page.goto(site['url'], wait_until='load', timeout=30000)
+            await page.goto(site['url'], wait_until='domcontentloaded', timeout=90000)
             
             # Try to get a more specific set of headlines/links for hashing
-            # For Reuters, look for links within specific article containers
+            # For Reuters, use a more general approach for headlines and primary link
+            # Try to get a more specific set of headlines/links for hashing
+            # For Reuters, use a more general approach for headlines and primary link
+            # Try to get a more specific set of headlines/links for hashing
+            # For Reuters, use a more general approach for headlines and primary link
+            # Try to get a more specific set of headlines/links for hashing
             if "reuters.com" in site['url']:
-                headlines_elements = await page.query_selector_all('div.media-story-card a[href*="/markets/"]')
-                headlines = " ".join([await el.inner_text() for el in headlines_elements])
-                primary_link_element = await page.query_selector('div.media-story-card a[href*="/markets/"]')
-                primary_link = await primary_link_element.get_attribute('href') if primary_link_element else None
+                headlines = await page.eval_on_selector_all('div.COMMODITIES-NEWS a.category', 'elements => elements.map(e => e.innerText).join(" ").slice(0, 500)')
+                primary_link = await page.evaluate("""() => {
+                    const links = Array.from(document.querySelectorAll('div.COMMODITIES-NEWS a.category'));
+                    for (const link of links) {
+                        if (link.href && !link.href.includes('#')) {
+                            return link.href;
+                        }
+                    }
+                    return null;
+                }""")
+            elif "bbc.com" in site['url']:
+                # For BBC, hash the entire page content to avoid timeout issues with specific selectors
+                headlines = await page.content() # Hash entire page content
+                primary_link = await page.evaluate("""() => {
+                    const links = Array.from(document.querySelectorAll('a'));
+                    for (const link of links) {
+                        if (link.href && (link.href.includes('/article/') || link.href.includes('/news/')) && !link.href.includes('#')) {
+                            return link.href;
+                        }
+                        
+                    }
+                    return null;
+                }""")
             else: # Generic approach for other sites
                 headlines = await page.eval_on_selector_all('h1, h2, h3, a[href*="article"], a[href*="news"]', 'elements => elements.map(e => e.innerText).join(" ").slice(0, 500)')
                 primary_link = await page.evaluate("""() => {
@@ -142,10 +166,6 @@ class Spectre:
                 save_cache(cache)
                 return primary_link, True # New content found
             print(f"No primary link found for {site['name']} despite content change.")
-            if primary_link:
-                cache[site['name']] = content_hash
-                save_cache(cache)
-                return primary_link, True # New content found
             return None, False
 
         except Exception as e:
