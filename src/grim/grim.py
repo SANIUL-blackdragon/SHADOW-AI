@@ -9,6 +9,8 @@ from glob import glob
 import time
 import hashlib
 from typing import Optional, Set
+from multiprocessing import Pool
+from concurrent.futures import ThreadPoolExecutor
 
 # Configure logging
 log_file = "grim.log"
@@ -43,7 +45,7 @@ binance_trade_columns = [
     'last_trade_id', 'transact_time', 'is_buyer_maker', 'is_best_match'
 ]
 
-# Define dtypes for CSV processing (use numpy types and 'object' for strings)
+# Define dtypes for CSV processing
 CSV_DTYPES = {
     'unix': np.float64,
     'date': 'object',
@@ -54,15 +56,12 @@ CSV_DTYPES = {
     'close': np.float64,
     'Volume BTC': np.float64,
     'Volume USD': np.float64,
-    'id': 'object',
-    'tradeId': 'object',
-    'price': np.float64,
-    'amount': np.float64,
-    'quantity': np.float64,
     'agg_trade_id': 'object',
-    'transact_time': np.float64,
+    'price': np.float64,
+    'quantity': np.float64,
     'first_trade_id': 'object',
     'last_trade_id': 'object',
+    'transact_time': np.float64,
     'is_buyer_maker': 'object',
     'is_best_match': 'object'
 }
@@ -103,14 +102,14 @@ def detect_csv_format(file_path: str) -> tuple[bool, Optional[list], bool]:
         except UnicodeDecodeError:
             with open(file_path, 'r', encoding='latin1') as f:
                 first_line = f.readline().strip().split(',')
-                logger.warning(f"File {file_path} used latin1 encoding fallback")
+            logger.warning(f"File {file_path} used latin1 encoding fallback")
         file_size = os.path.getsize(file_path)
         logger.debug(f"File {file_path} size: {file_size} bytes")
-        is_header = any(
-            s.lower() in ['unix', 'date', 'symbol', 'open', 'price', 'transact_time', 'close', 'Volume BTC'] 
-            for s in first_line
-        )
-        is_ohlcv = is_header and all(col in first_line for col in ['open', 'high', 'low', 'close'])
+        stripped_lower_first_line = [s.strip().lower() for s in first_line]
+        header_keywords = ['unix', 'date', 'symbol', 'open', 'price', 'transact_time', 'close', 'volume btc']
+        is_header = any(col in stripped_lower_first_line for col in header_keywords)
+        ohlcv_keywords = ['open', 'high', 'low', 'close']
+        is_ohlcv = is_header and all(col in stripped_lower_first_line for col in ohlcv_keywords)
         if 'aggTrades' in os.path.basename(file_path) and not is_header:
             return False, binance_trade_columns, False
         logger.debug(f"CSV {file_path} first line: {first_line}")
@@ -127,34 +126,43 @@ def check_csv_date_range(file_path: str) -> tuple[Optional[datetime], Optional[d
     try:
         has_headers, column_names, is_ohlcv = detect_csv_format(file_path)
         timestamp_col = None
-        if 'aggTrades' in os.path.basename(file_path) and not has_headers:
-            df = pd.read_csv(
-                file_path, header=None, names=binance_trade_columns,
-                dtype=CSV_DTYPES, low_memory=False, engine='python', encoding='utf-8'
-            )
-            logger.debug(f"Headerless CSV {file_path} shape: {df.shape}")
-            logger.debug(f"First 3 rows:\n{df.head(3).to_string()}")
-            timestamp_col = 'transact_time'
-        else:
-            for col in ['unix', 'date', 'transact_time']:
-                try:
-                    df = pd.read_csv(
-                        file_path, usecols=[col], header=0 if has_headers else None,
-                        dtype={col: np.float64}, low_memory=False, engine='python', encoding='utf-8'
-                    )
-                    timestamp_col = col
+        if has_headers:
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    header_line = f.readline().strip().split(',')
+            except UnicodeDecodeError:
+                with open(file_path, 'r', encoding='latin1') as f:
+                    header_line = f.readline().strip().split(',')
+                logger.warning(f"File {file_path} used latin1 encoding fallback")
+            stripped_lower_header = [s.strip().lower() for s in header_line]
+            for possible_col in ['unix', 'date', 'transact_time']:
+                if possible_col in stripped_lower_header:
+                    idx = stripped_lower_header.index(possible_col)
+                    timestamp_col = header_line[idx]  # Preserve original column name
                     break
-                except ValueError:
-                    continue
-            if not timestamp_col:
-                logger.warning(f"No valid timestamp column ('unix', 'date', or 'transact_time') in {file_path}")
-                return None, None
-        
-        if timestamp_col not in df.columns or df[timestamp_col].isna().all():
-            logger.warning(f"'{timestamp_col}' column missing or all NaN in {file_path}")
+        elif 'aggTrades' in os.path.basename(file_path):
+            timestamp_col = 'transact_time'
+            column_names = binance_trade_columns
+        if timestamp_col is None:
+            logger.warning(f"No valid timestamp column in {file_path}")
             return None, None
-        
-        for unit in ['ms', 's']:
+        # Read only the timestamp column for efficiency
+        if has_headers:
+            df = pd.read_csv(
+                file_path, usecols=[timestamp_col], dtype={timestamp_col: np.float64},
+                engine='python', encoding='utf-8'
+            )
+        else:
+            # For headerless files, use column index for transact_time (index 5 in binance_trade_columns)
+            df = pd.read_csv(
+                file_path, header=None, names=column_names,
+                dtype={timestamp_col: np.float64}, engine='python', encoding='utf-8'
+            )
+        # Log first 5 timestamps for debugging
+        logger.debug(f"First 5 timestamp values in {file_path}: {df[timestamp_col].head(5).tolist()}")
+        # Prioritize seconds for Bitstamp files, then try milliseconds
+        units = ['s', 'ms'] if 'Bitstamp' in os.path.basename(file_path) else ['ms', 's']
+        for unit in units:
             try:
                 df['datetime'] = pd.to_datetime(df[timestamp_col], unit=unit, errors='coerce', utc=True)
                 if not df['datetime'].isna().all():
@@ -165,12 +173,10 @@ def check_csv_date_range(file_path: str) -> tuple[Optional[datetime], Optional[d
         else:
             logger.warning(f"Could not parse timestamps in {file_path}")
             return None, None
-        
         df = df.dropna(subset=['datetime'])
         if df.empty:
             logger.warning(f"No valid timestamps in {file_path}")
             return None, None
-        
         min_ts = df['datetime'].min()
         max_ts = df['datetime'].max()
         if min_ts.year < 2000 or max_ts.year < 2000:
@@ -197,7 +203,6 @@ def migrate_legacy_tables(sqlite_file: str) -> None:
         conn = sqlite3.connect(sqlite_file)
         cursor = conn.cursor()
         
-        # Create market_data table
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS market_data (
                 timestamp TEXT,
@@ -210,39 +215,36 @@ def migrate_legacy_tables(sqlite_file: str) -> None:
             )
         """)
         
-        # Migrate 'trades' table
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='trades'")
         if cursor.fetchone():
             logger.info(f"Migrating legacy 'trades' table in {sqlite_file}")
             cursor.execute("SELECT timestamp, price, quantity, quoteQty, tradeId, symbol FROM trades")
             trades_data = cursor.fetchall()
-            for row in trades_data:
-                cursor.execute("""
-                    INSERT OR REPLACE INTO market_data (
-                        timestamp, price, quantity, quoteQty, tradeId, symbol
-                    ) VALUES (?, ?, ?, ?, ?, ?)
-                """, row)
+            cursor.executemany("""
+                INSERT OR REPLACE INTO market_data (
+                    timestamp, price, quantity, quoteQty, tradeId, symbol
+                ) VALUES (?, ?, ?, ?, ?, ?)
+            """, trades_data)
             logger.info(f"Migrated {len(trades_data)} records from 'trades' to 'market_data' in {sqlite_file}")
         
-        # Migrate 'ohlcv' table
         cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='ohlcv'")
         if cursor.fetchone():
             logger.info(f"Migrating legacy 'ohlcv' table in {sqlite_file}")
-            cursor.execute("SELECT unix, close, `Volume BTC` FROM ohlcv")
+            cursor.execute("SELECT unix, close, `Volume BTC`, symbol FROM ohlcv")
             ohlcv_data = cursor.fetchall()
             for idx, row in enumerate(ohlcv_data):
-                timestamp_ms, close, volume_btc = row
+                timestamp_ms, close, volume_btc, symbol = row
                 timestamp = datetime.fromtimestamp(timestamp_ms / 1000, tz=TIMEZONE).strftime("%Y-%m-%dT%H:%M:%SZ")
-                price = float(close)
+                price = float(close) if close is not None else 0.0
                 quantity = float(volume_btc) if volume_btc is not None else 0.0
                 quote_qty = price * quantity
-                # Generate synthetic tradeId for OHLCV
                 trade_id = hashlib.md5(f"{timestamp}_{idx}".encode()).hexdigest()
+                symbol = symbol if symbol else SYMBOL
                 cursor.execute("""
                     INSERT OR REPLACE INTO market_data (
                         timestamp, price, quantity, quoteQty, tradeId, symbol
                     ) VALUES (?, ?, ?, ?, ?, ?)
-                """, (timestamp, price, quantity, quote_qty, trade_id, SYMBOL))
+                """, (timestamp, price, quantity, quote_qty, trade_id, symbol))
             logger.info(f"Migrated {len(ohlcv_data)} records from 'ohlcv' to 'market_data' in {sqlite_file}")
         
         conn.commit()
@@ -271,99 +273,160 @@ def process_csv_file(file_path: str, missing_dates: Set[str]) -> None:
             return
         
         has_headers, column_names, is_ohlcv = detect_csv_format(file_path)
+        chunksize = 100000
         try:
             if 'aggTrades' in os.path.basename(file_path) and not has_headers:
-                df = pd.read_csv(
+                for chunk in pd.read_csv(
                     file_path, header=None, names=binance_trade_columns,
-                    dtype=CSV_DTYPES, low_memory=False, engine='python', encoding='utf-8'
-                )
-            else:
-                df = pd.read_csv(
-                    file_path, header=0 if has_headers else None,
-                    names=column_names if not has_headers else None,
-                    dtype=CSV_DTYPES, low_memory=False, engine='python', encoding='utf-8'
-                )
-        except UnicodeDecodeError:
-            df = pd.read_csv(
-                file_path, header=0 if has_headers else None,
-                names=column_names if not has_headers else None,
-                dtype=CSV_DTYPES, low_memory=False, engine='python', encoding='latin1'
-            )
-            logger.warning(f"File {file_path} used latin1 encoding fallback")
-        logger.debug(f"Loaded CSV {file_path} with columns: {df.columns.tolist()}")
-        logger.debug(f"First 3 rows:\n{df.head(3).to_string()}")
-        
-        if is_ohlcv:
-            # Process OHLCV data
-            for unit in ['ms', 's']:
-                try:
-                    df['timestamp'] = pd.to_datetime(df['unix'], unit=unit, errors='coerce', utc=True).dt.strftime('%Y-%m-%dT%H:%M:%SZ')
-                    if not df['timestamp'].isna().all():
-                        break
-                except Exception:
-                    continue
-            else:
-                logger.warning(f"No valid timestamp in {file_path}")
-                df['timestamp'] = None
-            df['price'] = df['close']
-            df['quantity'] = df.get('Volume BTC', 0.0)
-            df['quoteQty'] = df['price'] * df['quantity']
-            df['symbol'] = SYMBOL
-            # Generate synthetic tradeId
-            df['tradeId'] = [hashlib.md5(f"{ts}_{idx}".encode()).hexdigest() for idx, ts in enumerate(df['timestamp'])]
-        else:
-            # Process trade data
-            is_binance_trade = 'aggTrades' in os.path.basename(file_path)
-            if is_binance_trade:
-                for unit in ['ms', 's']:
-                    try:
-                        df['timestamp'] = pd.to_datetime(df['transact_time'], unit=unit, errors='coerce', utc=True).dt.strftime('%Y-%m-%dT%H:%M:%SZ')
-                        if not df['timestamp'].isna().all():
-                            break
-                    except Exception:
-                        continue
-                else:
-                    logger.warning(f"No valid timestamp in {file_path}")
-                    df['timestamp'] = None
-                df['tradeId'] = df['agg_trade_id']
-                df['price'] = df['price']
-                df['quantity'] = df['quantity']
-                df['quoteQty'] = df['price'] * df['quantity']
-                df['symbol'] = SYMBOL
-            else:
-                df['tradeId'] = df.get('id', df.get('tradeId'))
-                timestamp_col = 'date' if 'date' in df.columns else 'timestamp' if 'timestamp' in df.columns else None
-                if timestamp_col:
+                    dtype={col: CSV_DTYPES[col] for col in binance_trade_columns if col in CSV_DTYPES},
+                    engine='python', encoding='utf-8', chunksize=chunksize
+                ):
                     for unit in ['ms', 's']:
                         try:
-                            df['timestamp'] = pd.to_datetime(df[timestamp_col], unit=unit, errors='coerce', utc=True).dt.strftime('%Y-%m-%dT%H:%M:%SZ')
-                            if not df['timestamp'].isna().all():
+                            chunk['timestamp'] = pd.to_datetime(chunk['transact_time'], unit=unit, errors='coerce', utc=True).dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+                            if not chunk['timestamp'].isna().all():
                                 break
                         except Exception:
                             continue
                     else:
                         logger.warning(f"No valid timestamp in {file_path}")
-                        df['timestamp'] = None
+                        chunk['timestamp'] = None
+                    chunk['tradeId'] = chunk['agg_trade_id']
+                    chunk['price'] = chunk['price']
+                    chunk['quantity'] = chunk['quantity']
+                    chunk['quoteQty'] = chunk['price'] * chunk['quantity']
+                    chunk['symbol'] = SYMBOL
+                    chunk = chunk[['timestamp', 'price', 'quantity', 'quoteQty', 'tradeId', 'symbol']]
+                    chunk = chunk.dropna(subset=['timestamp', 'price', 'quantity', 'tradeId'])
+                    chunk['date_str'] = chunk['timestamp'].str[:10].str.replace("-", "")
+                    chunk = chunk[chunk['date_str'].isin(missing_dates)]
+                    chunk = chunk.drop(columns=['date_str'])
+                    if not chunk.empty:
+                        save_data(chunk)
+                        logger.info(f"Processed {len(chunk)} records from {file_path} (aggTrades)")
+            else:
+                try:
+                    with open(file_path, 'r', encoding='utf-8') as f:
+                        header_line = f.readline().strip().split(',')
+                except UnicodeDecodeError:
+                    with open(file_path, 'r', encoding='latin1') as f:
+                        header_line = f.readline().strip().split(',')
+                    logger.warning(f"File {file_path} used latin1 encoding fallback")
+                column_map = {s: s.strip() for s in header_line} if has_headers else {}
+                for chunk in pd.read_csv(
+                    file_path, header=0 if has_headers else None,
+                    names=column_names if not has_headers else None,
+                    dtype=CSV_DTYPES, engine='python', encoding='utf-8', chunksize=chunksize
+                ):
+                    if is_ohlcv:
+                        # Prioritize seconds for Bitstamp files
+                        units = ['s', 'ms'] if 'Bitstamp' in os.path.basename(file_path) else ['ms', 's']
+                        for unit in units:
+                            try:
+                                chunk['timestamp'] = pd.to_datetime(chunk[column_map.get('unix', 'unix')], unit=unit, errors='coerce', utc=True).dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+                                if not chunk['timestamp'].isna().all():
+                                    break
+                            except Exception as e:
+                                logger.debug(f"Failed to parse timestamps with unit={unit} in {file_path}: {e}")
+                                continue
+                        else:
+                            logger.warning(f"No valid timestamp in {file_path}")
+                            chunk['timestamp'] = None
+                        chunk['price'] = chunk[column_map.get('close', 'close')]
+                        chunk['quantity'] = chunk.get(column_map.get('Volume BTC', 'Volume BTC'), 0.0)
+                        chunk['quoteQty'] = chunk['price'] * chunk['quantity']
+                        chunk['symbol'] = chunk.get(column_map.get('symbol', 'symbol'), SYMBOL)
+                        chunk['tradeId'] = [hashlib.md5(f"{ts}_{idx}".encode()).hexdigest() for idx, ts in enumerate(chunk['timestamp'])]
+                    else:
+                        timestamp_col = None
+                        for col in ['unix', 'date', 'transact_time']:
+                            if col in [c.lower() for c in chunk.columns]:
+                                timestamp_col = chunk.columns[[c.lower() for c in chunk.columns].index(col)]
+                                break
+                        if timestamp_col:
+                            for unit in ['ms', 's']:
+                                try:
+                                    chunk['timestamp'] = pd.to_datetime(chunk[timestamp_col], unit=unit, errors='coerce', utc=True).dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+                                    if not chunk['timestamp'].isna().all():
+                                        break
+                                except Exception:
+                                    continue
+                            else:
+                                logger.warning(f"No valid timestamp in {file_path}")
+                                chunk['timestamp'] = None
+                        else:
+                            logger.warning(f"No timestamp column in {file_path}")
+                            chunk['timestamp'] = None
+                        chunk['tradeId'] = chunk.get(column_map.get('agg_trade_id', 'agg_trade_id'), chunk.get(column_map.get('tradeId', 'tradeId'), [hashlib.md5(f"{ts}_{idx}".encode()).hexdigest() for idx, ts in enumerate(chunk['timestamp'])]))
+                        chunk['price'] = chunk.get(column_map.get('price', 'price'))
+                        chunk['quantity'] = chunk.get(column_map.get('quantity', 'quantity'), chunk.get(column_map.get('amount', 'amount'), 0.0))
+                        chunk['quoteQty'] = chunk['price'] * chunk['quantity']
+                        chunk['symbol'] = chunk.get(column_map.get('symbol', 'symbol'), SYMBOL)
+                    chunk = chunk[['timestamp', 'price', 'quantity', 'quoteQty', 'tradeId', 'symbol']]
+                    chunk = chunk.dropna(subset=['timestamp', 'price', 'quantity', 'tradeId'])
+                    chunk['date_str'] = chunk['timestamp'].str[:10].str.replace("-", "")
+                    chunk = chunk[chunk['date_str'].isin(missing_dates)]
+                    chunk = chunk.drop(columns=['date_str'])
+                    if not chunk.empty:
+                        save_data(chunk)
+                        logger.info(f"Processed {len(chunk)} records from {file_path} (OHLCV={is_ohlcv})")
+        except UnicodeDecodeError:
+            for chunk in pd.read_csv(
+                file_path, header=0 if has_headers else None,
+                names=column_names if not has_headers else None,
+                dtype=CSV_DTYPES, engine='python', encoding='latin1', chunksize=chunksize
+            ):
+                if is_ohlcv:
+                    units = ['s', 'ms'] if 'Bitstamp' in os.path.basename(file_path) else ['ms', 's']
+                    for unit in units:
+                        try:
+                            chunk['timestamp'] = pd.to_datetime(chunk[column_map.get('unix', 'unix')], unit=unit, errors='coerce', utc=True).dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+                            if not chunk['timestamp'].isna().all():
+                                break
+                        except Exception as e:
+                            logger.debug(f"Failed to parse timestamps with unit={unit} in {file_path}: {e}")
+                            continue
+                    else:
+                        logger.warning(f"No valid timestamp in {file_path}")
+                        chunk['timestamp'] = None
+                    chunk['price'] = chunk[column_map.get('close', 'close')]
+                    chunk['quantity'] = chunk.get(column_map.get('Volume BTC', 'Volume BTC'), 0.0)
+                    chunk['quoteQty'] = chunk['price'] * chunk['quantity']
+                    chunk['symbol'] = chunk.get(column_map.get('symbol', 'symbol'), SYMBOL)
+                    chunk['tradeId'] = [hashlib.md5(f"{ts}_{idx}".encode()).hexdigest() for idx, ts in enumerate(chunk['timestamp'])]
                 else:
-                    logger.warning(f"No timestamp column in {file_path}")
-                    df['timestamp'] = None
-                df['price'] = df.get('price')
-                df['quantity'] = df.get('amount', df.get('quantity'))
-                df['quoteQty'] = df['price'] * df['quantity']
-                df['symbol'] = df.get('symbol', SYMBOL)
-        
-        df = df[['timestamp', 'price', 'quantity', 'quoteQty', 'tradeId', 'symbol']]
-        df = df.dropna(subset=['timestamp', 'price', 'quantity', 'tradeId'])
-        df['date_str'] = df['timestamp'].str[:10].str.replace("-", "")
-        df = df[df['date_str'].isin(missing_dates)]
-        df = df.drop(columns=['date_str'])
-        
-        if df.empty:
-            logger.warning(f"No valid data in {file_path} for missing dates")
-            return
-        
-        save_data(df)
-        logger.info(f"Processed {len(df)} records from {file_path} (OHLCV={is_ohlcv})")
+                    timestamp_col = None
+                    for col in ['unix', 'date', 'transact_time']:
+                        if col in [c.lower() for c in chunk.columns]:
+                            timestamp_col = chunk.columns[[c.lower() for c in chunk.columns].index(col)]
+                            break
+                    if timestamp_col:
+                        for unit in ['ms', 's']:
+                            try:
+                                chunk['timestamp'] = pd.to_datetime(chunk[timestamp_col], unit=unit, errors='coerce', utc=True).dt.strftime('%Y-%m-%dT%H:%M:%SZ')
+                                if not chunk['timestamp'].isna().all():
+                                    break
+                            except Exception:
+                                continue
+                        else:
+                            logger.warning(f"No valid timestamp in {file_path}")
+                            chunk['timestamp'] = None
+                    else:
+                        logger.warning(f"No timestamp column in {file_path}")
+                        chunk['timestamp'] = None
+                    chunk['tradeId'] = chunk.get(column_map.get('agg_trade_id', 'agg_trade_id'), chunk.get(column_map.get('tradeId', 'tradeId'), [hashlib.md5(f"{ts}_{idx}".encode()).hexdigest() for idx, ts in enumerate(chunk['timestamp'])]))
+                    chunk['price'] = chunk.get(column_map.get('price', 'price'))
+                    chunk['quantity'] = chunk.get(column_map.get('quantity', 'quantity'), chunk.get(column_map.get('amount', 'amount'), 0.0))
+                    chunk['quoteQty'] = chunk['price'] * chunk['quantity']
+                    chunk['symbol'] = chunk.get(column_map.get('symbol', 'symbol'), SYMBOL)
+                chunk = chunk[['timestamp', 'price', 'quantity', 'quoteQty', 'tradeId', 'symbol']]
+                chunk = chunk.dropna(subset=['timestamp', 'price', 'quantity', 'tradeId'])
+                chunk['date_str'] = chunk['timestamp'].str[:10].str.replace("-", "")
+                chunk = chunk[chunk['date_str'].isin(missing_dates)]
+                chunk = chunk.drop(columns=['date_str'])
+                if not chunk.empty:
+                    save_data(chunk)
+                    logger.info(f"Processed {len(chunk)} records from {file_path} (OHLCV={is_ohlcv})")
     except FileNotFoundError:
         logger.error(f"File not found: {file_path}")
     except pd.errors.EmptyDataError:
@@ -374,7 +437,7 @@ def process_csv_file(file_path: str, missing_dates: Set[str]) -> None:
         logger.error(f"Unexpected error processing {file_path}: {e}")
 
 def process_csv_files(missing_dates: Set[str]) -> None:
-    """Process CSV files in ZIP_DATA_DIR for missing dates."""
+    """Process CSV files in ZIP_DATA_DIR for missing dates in parallel."""
     csv_files = get_all_csv_files(ZIP_DATA_DIR)
     if not csv_files:
         logger.warning("No CSV files found in ZIP_DATA_DIR")
@@ -383,15 +446,11 @@ def process_csv_files(missing_dates: Set[str]) -> None:
     bitfinex_files = [f for f in csv_files if 'Bitfinex' in os.path.basename(f)]
     other_files = [f for f in csv_files if 'Bitfinex' not in os.path.basename(f)]
     
-    logger.info(f"Processing Bitfinex files: {bitfinex_files}")
-    for file_path in bitfinex_files:
-        min_ts, max_ts = check_csv_date_range(file_path)
-        if min_ts and max_ts and max_ts >= BITFINEX_START_DATE:
-            process_csv_file(file_path, missing_dates)
+    all_files = bitfinex_files + other_files
+    logger.info(f"Processing files: {all_files}")
     
-    logger.info(f"Processing other files: {other_files}")
-    for file_path in other_files:
-        process_csv_file(file_path, missing_dates)
+    with Pool(processes=2) as pool:  # Adjust number of processes based on your CPU
+        pool.starmap(process_csv_file, [(file, missing_dates) for file in all_files])
 
 def get_month_dir(timestamp: datetime) -> str:
     """Get directory for a given timestamp's year and month."""
@@ -409,7 +468,7 @@ def setup_directories(timestamp: datetime) -> None:
             logger.error(f"Error creating directory {dir_path}: {e}")
 
 def setup_sqlite(timestamp: datetime, date_str: str) -> Optional[str]:
-    """Set up SQLite database for a given date and migrate legacy tables."""
+    """Set up SQLite database for a given date with WAL mode and migrate legacy tables."""
     month_dir = get_month_dir(timestamp)
     sqlite_file = os.path.join(month_dir, "chart", "sqlite", f"{date_str}.db")
     create_table_sql = """
@@ -427,10 +486,11 @@ def setup_sqlite(timestamp: datetime, date_str: str) -> Optional[str]:
         migrate_legacy_tables(sqlite_file)
         conn = sqlite3.connect(sqlite_file)
         cursor = conn.cursor()
+        cursor.execute("PRAGMA journal_mode = WAL;")  # Enable WAL mode
         cursor.execute(create_table_sql)
         conn.commit()
         conn.close()
-        logger.info(f"SQLite table 'market_data' created in: {sqlite_file}")
+        logger.info(f"SQLite table 'market_data' created in: {sqlite_file} with WAL mode")
         return sqlite_file
     except sqlite3.Error as e:
         logger.error(f"SQLite error for {sqlite_file}: {e}")
@@ -519,26 +579,25 @@ def consolidate_scale_data(missing_dates: Set[str]) -> Optional[pd.DataFrame]:
                 if 'aggTrades' in os.path.basename(file) and not has_headers:
                     df = pd.read_csv(
                         file, header=None, names=binance_trade_columns,
-                        dtype=CSV_DTYPES, low_memory=False, engine='python', encoding='utf-8'
+                        dtype=CSV_DTYPES, engine='python', encoding='utf-8'
                     )
                 else:
                     df = pd.read_csv(
                         file, header=0 if has_headers else None,
                         names=column_names if not has_headers else None,
-                        dtype=CSV_DTYPES, low_memory=False, engine='python', encoding='utf-8'
+                        dtype=CSV_DTYPES, engine='python', encoding='utf-8'
                     )
             except UnicodeDecodeError:
                 df = pd.read_csv(
                     file, header=0 if has_headers else None,
                     names=column_names if not has_headers else None,
-                    dtype=CSV_DTYPES, low_memory=False, engine='python', encoding='latin1'
+                    dtype=CSV_DTYPES, engine='python', encoding='latin1'
                 )
                 logger.warning(f"File {file} used latin1 encoding fallback")
             logger.debug(f"Loaded scale CSV {file} with columns: {df.columns.tolist()}")
             logger.debug(f"First 3 rows:\n{df.head(3).to_string()}")
             
             if is_ohlcv:
-                # Process OHLCV data
                 for unit in ['ms', 's']:
                     try:
                         df['timestamp'] = pd.to_datetime(df['unix'], unit=unit, errors='coerce', utc=True).dt.strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -553,10 +612,8 @@ def consolidate_scale_data(missing_dates: Set[str]) -> Optional[pd.DataFrame]:
                 df['quantity'] = df.get('Volume BTC', 0.0)
                 df['quoteQty'] = df['price'] * df['quantity']
                 df['symbol'] = SYMBOL
-                # Generate synthetic tradeId
                 df['tradeId'] = [hashlib.md5(f"{ts}_{idx}".encode()).hexdigest() for idx, ts in enumerate(df['timestamp'])]
             else:
-                # Process trade data
                 if 'aggTrades' in os.path.basename(file):
                     for unit in ['ms', 's']:
                         try:
@@ -624,7 +681,7 @@ def consolidate_scale_data(missing_dates: Set[str]) -> Optional[pd.DataFrame]:
     return None
 
 def save_data(df: pd.DataFrame) -> None:
-    """Save data to CSV and SQLite, handling duplicates."""
+    """Save data to CSV and SQLite, handling duplicates with bulk SQLite inserts."""
     if df.empty or df["timestamp"].isnull().all():
         logger.warning("No valid data to save")
         return
@@ -643,10 +700,11 @@ def save_data(df: pd.DataFrame) -> None:
                 logger.error(f"Skipping save due to SQLite setup failure for {date_str}")
                 continue
             
+            # Save to CSV
             try:
                 if os.path.exists(csv_file):
                     try:
-                        existing_df = pd.read_csv(csv_file, dtype=CSV_DTYPES, engine='python', encoding='utf-8', errors='ignore')
+                        existing_df = pd.read_csv(csv_file, dtype=CSV_DTYPES, engine='python', encoding='utf-8')
                     except UnicodeDecodeError:
                         existing_df = pd.read_csv(csv_file, dtype=CSV_DTYPES, engine='python', encoding='latin1')
                         logger.warning(f"CSV {csv_file} used latin1 encoding fallback")
@@ -660,18 +718,16 @@ def save_data(df: pd.DataFrame) -> None:
             except (IOError, pd.errors.EmptyDataError, pd.errors.ParserError) as e:
                 logger.error(f"Error writing/reading CSV {csv_file}: {e}")
             
+            # Save to SQLite with bulk insert
             try:
                 conn = sqlite3.connect(sqlite_file)
                 cursor = conn.cursor()
-                for _, row in df_date.iterrows():
-                    cursor.execute("""
-                        INSERT OR REPLACE INTO market_data (
-                            timestamp, price, quantity, quoteQty, tradeId, symbol
-                        ) VALUES (?, ?, ?, ?, ?, ?)
-                    """, (
-                        row["timestamp"], row["price"], row["quantity"], row["quoteQty"],
-                        row["tradeId"], row["symbol"]
-                    ))
+                rows = [tuple(row) for _, row in df_date.iterrows()]
+                cursor.executemany("""
+                    INSERT OR REPLACE INTO market_data (
+                        timestamp, price, quantity, quoteQty, tradeId, symbol
+                    ) VALUES (?, ?, ?, ?, ?, ?)
+                """, rows)
                 conn.commit()
                 logger.info(f"Updated {sqlite_file} with {len(df_date)} records")
             except sqlite3.Error as e:
@@ -711,8 +767,12 @@ def get_latest_timestamp() -> datetime:
     logger.info(f"Latest timestamp: {latest_timestamp}")
     return latest_timestamp
 
+def fetch_chunk(start_time: datetime, end_time: datetime) -> Optional[pd.DataFrame]:
+    """Wrapper for fetch_historical_trades for parallel execution."""
+    return fetch_historical_trades(start_time, end_time)
+
 def main() -> None:
-    """Main loop for G.R.I.M."""
+    """Main loop for G.R.I.M. with parallel processing."""
     logger.info("Starting G.R.I.M. Press Ctrl+C to stop.")
     
     try:
@@ -736,27 +796,35 @@ def main() -> None:
             missing_dates = all_dates - existing_dates
             logger.info(f"Missing dates: {sorted(missing_dates)}")
             
+            # Parallel CSV processing
             process_csv_files(missing_dates)
             
+            # Consolidate scale data
             scale_df = consolidate_scale_data(missing_dates)
             if scale_df is not None and not scale_df.empty:
                 save_data(scale_df)
             
+            # Parallel API fetching
             start_time = get_latest_timestamp()
             end_time = datetime.now(TIMEZONE)
             total_seconds = (end_time - start_time).total_seconds()
             if total_seconds > 0:
                 logger.info(f"Fetching historical trades from {start_time} to {end_time} ({total_seconds/3600:.2f} hours)")
-            while start_time < end_time:
-                time_gap = (end_time - start_time).total_seconds() / 3600
-                chunk_size = timedelta(days=1) if time_gap > 168 else timedelta(hours=1) if time_gap > 1 else timedelta(minutes=1)
-                chunk_end = min(start_time + chunk_size, end_time)
-                api_df = fetch_historical_trades(start_time, chunk_end)
-                if api_df is not None and not api_df.empty:
-                    save_data(api_df)
-                progress = ((chunk_end - start_time).total_seconds() / total_seconds * 100) if total_seconds > 0 else 100
-                logger.info(f"Progress: {progress:.2f}% completed up to {chunk_end}")
-                start_time = chunk_end
+                chunks = []
+                chunk_size = timedelta(hours=1)  # Adjust based on your needs
+                current_time = start_time
+                while current_time < end_time:
+                    chunk_end = min(current_time + chunk_size, end_time)
+                    chunks.append((current_time, chunk_end))
+                    current_time = chunk_end
+                
+                with ThreadPoolExecutor(max_workers=3) as executor:  # Adjust max_workers based on rate limits
+                    results = list(executor.map(lambda x: fetch_chunk(*x), chunks))
+                
+                for df in results:
+                    if df is not None and not df.empty:
+                        save_data(df)
+            
             logger.info(f"Completed cycle at {datetime.now(TIMEZONE).strftime('%Y-%m-%dT%H:%M:%SZ')}")
             time.sleep(CHECK_INTERVAL)
         except KeyboardInterrupt:

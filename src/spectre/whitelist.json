@@ -1,12 +1,167 @@
 [
     {
-        "name": "Reuters Commodities",
-        "url": "https://www.reuters.com/markets/commodities/",
-        "type": "homepage"
-    },
-    {
         "name": "BBC Business",
         "url": "https://www.bbc.com/news/business",
         "type": "homepage"
+    },
+    {
+        "name": "BBC Technology",
+        "url": "https://www.bbc.com/news/technology",
+        "type": "homepage"
+    },
+    {
+        "name": "BBC Politics",
+        "url": "https://www.bbc.com/news/politics",
+        "type": "homepage"
+    },
+    {
+        "name": "BBC World News",
+        "url": "https://www.bbc.com/news/world",
+        "type": "homepage"
+    },
+    {
+        "name": "BBC Science & Environment",
+        "url": "https://www.bbc.com/news/science_and_environment",
+        "type": "homepage"
+    },
+    {
+        "name": "BBC Health",
+        "url": "https://www.bbc.com/news/health",
+        "type": "homepage"
+    },
+    {
+        "name": "BBC Education",
+        "url": "https://www.bbc.com/news/education",
+        "type": "homepage"
+    },
+    {
+        "name": "BBC Entertainment & Arts",
+        "url": "https://www.bbc.com/news/entertainment_and_arts",
+        "type": "homepage"
+    },
+    {
+        "name": "BBC Sport",
+        "url": "https://www.bbc.com/sport",
+        "type": "homepage"
+    },
+    {
+        "name": "BBC Travel",
+        "url": "https://www.bbc.com/travel",
+        "type": "homepage"
+    },
+    {
+        "name": "BBC Future",
+        "url": "https://www.bbc.com/future",
+        "type": "homepage"
+    },
+    {
+        "name": "BBC Culture",
+        "url": "https://www.bbc.com/culture",
+        "type": "homepage"
+    },
+    {
+        "name": "BBC Capital",
+        "url": "https://www.bbc.com/capital",
+        "type": "homepage"
+    },
+    {
+        "name": "BBC Languages",
+        "url": "https://www.bbc.com/languages",
+        "type": "homepage"
+    },
+    {
+        "name": "BBC News",
+        "url": "https://www.bbc.com/news",
+        "type": "homepage"
+    },
+    {
+        "name": "BBC News - Indonesia",
+        "url": "https://www.bbc.com/news/topics/cyxw3g0l2vvt/indonesia",
+        "type": "topic"
+    },
+    {
+        "name": "BBC News - US & Canada",
+        "url": "https://www.bbc.com/news/topics/cyxw3g0l2vvt/us-canada",
+        "type": "topic"
+    },
+    {
+        "name": "BBC News - Trade",
+        "url": "https://www.bbc.com/news/topics/cyxw3g0l2vvt/trade",
+        "type": "topic"
+    },
+    {
+        "name": "BBC News - Donald Trump",
+        "url": "https://www.bbc.com/news/topics/cyxw3g0l2vvt/donald-trump",
+        "type": "topic"
+    },
+    {
+        "name": "BBC News - Economy",
+        "url": "https://www.bbc.com/news/topics/cyxw3g0l2vvt/economy",
+        "type": "topic"
+    },
+    {
+        "name": "NPR News RSS",
+        "url": "https://www.npr.org/rss/rss.php?id=1001",
+        "type": "rss_full"
+    },
+    {
+        "name": "The Guardian World News RSS",
+        "url": "https://www.theguardian.com/world/rss",
+        "type": "rss_full"
+    },
+    {
+        "name": "Reuters World News RSS",
+        "url": "https://feeds.reuters.com/reuters/worldnews",
+        "type": "rss"
+    },
+    {
+        "name": "VOA News",
+        "url": "https://www.voanews.com",
+        "type": "homepage"
+    },
+    {
+        "name": "NASA News",
+        "url": "https://www.nasa.gov/news",
+        "type": "homepage"
+    },
+    {
+        "name": "TechCrunch",
+        "url": "https://techcrunch.com/feed/",
+        "type": "rss_full"
+    },
+    {
+        "name": "Wired",
+        "url": "https://www.wired.com/feed/rss",
+        "type": "rss_full"
+    },
+    {
+        "name": "Ars Technica",
+        "url": "https://arstechnica.com/feed/",
+        "type": "rss_full"
+    },
+    {
+        "name": "BBC Business RSS",
+        "url": "https://feeds.bbci.co.uk/news/business/rss.xml",
+        "type": "rss"
+    },
+    {
+        "name": "BBC Technology RSS",
+        "url": "https://feeds.bbci.co.uk/news/technology/rss.xml",
+        "type": "rss"
+    },
+    {
+        "name": "BBC Science & Environment RSS",
+        "url": "https://feeds.bbci.co.uk/news/science_and_environment/rss.xml",
+        "type": "rss"
+    },
+    {
+        "name": "BBC Health RSS",
+        "url": "https://feeds.bbci.co.uk/news/health/rss.xml",
+        "type": "rss"
+    },
+    {
+        "name": "BBC Education RSS",
+        "url": "https://feeds.bbci.co.uk/news/education/rss.xml",
+        "type": "rss"
     }
 ]

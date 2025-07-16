@@ -3,6 +3,10 @@ venv/
 shadow-ai-venv/
 scale-venv/
 grim-venv/
+spectre-venv/
+src/venv/
+phantom-venv/
+src/*/phantom
 src/*/venv/
 src/*/scale-venv/
 src/*/grim-venv/
@@ -47,3 +51,5 @@ zip/
 config.yaml
 config.yml
 secrets.json
+.env
+.env

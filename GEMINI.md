@@ -29,6 +29,37 @@ SHADOW AI has a modular architecture. You should be aware of the following submo
 - **Core Libraries:** TensorFlow (CPU version), pandas, NumPy, Scrapy, Selenium, HuggingFace Transformers, Discord.py, SQLite.
 - **Deployment:** The final application is intended to run on a VPS (Ubuntu 24.04 LTS).
 
+## Project Structure
+
+```
+SHADOW-AI/
+├───.gitignore
+├───GEMINI.md
+├───LICENSE
+├───README.md
+├───requirements.txt
+├───shadow_ai.py
+├───bin/
+├───data/
+│   ├───flare/
+│   ├───grim/
+│   ├───news_logs/
+│   ├───scale/
+│   └───trades/
+├───docs/
+│   └───md/
+├───downloads/
+├───logs/
+└───src/
+    ├───echo/
+    ├───flare/
+    ├───grim/
+    ├───phantom/
+    ├───scale/
+    ├───spectre/
+    └───veil/
+```
+
 ## 4. How to Assist
 
 - **Adhere to Conventions:** Follow the detailed plans in the `docs/md/` folder. The user values detailed planning before implementation.
@@ -55,10 +86,10 @@ This plan outlines the steps to build the SHADOW AI MVP. After completing each s
 - [X] Create `shadow_ai.py` with CLI integration.
 
 **Day 2: S.C.A.L.E. Module**
-- [ ] Develop S.C.A.L.E. to extract BTC/USD live data from Binance API.
+- [X] Develop S.C.A.L.E. to extract BTC/USD live data from Binance API.
 
 **Day 3: G.R.I.M. Module**
-- [ ] Implement G.R.I.M. to load and structure historical data.
+- [X] Implement G.R.I.M. to load and structure historical data.
 
 **Day 4-5: P.H.A.N.T.O.M. Module**
 - [ ] Build and train P.H.A.N.T.O.M. using an LSTM or Transformer model.

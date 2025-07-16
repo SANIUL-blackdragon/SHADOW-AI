@@ -1,3 +1,14 @@
 beautifulsoup4
 pandas
 playwright
+feedparser
+requests
+lxml
+selenium
+webdriver-manager
+tqdm
+numpy
+scikit-learn
+scipy
+matplotlib
+seaborn
