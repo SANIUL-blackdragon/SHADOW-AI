@@ -17,7 +17,7 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..
 # Configuration
 DATA_PATH = os.path.join(PROJECT_ROOT, 'data', 'grim', 'historical_data.csv')  # Historical data from G.R.I.M.
 NEWS_LOGS_PATH = os.path.join(PROJECT_ROOT, 'data', 'news_logs')  # News logs from F.L.A.R.E.
-MODELS_PATH = os.path.join(PROJECT_ROOT, 'models')  # Directory for saving models
+MODELS_PATH = os.path.join(PROJECT_ROOT, 'models')  # Directory for pre-trained models
 OUTPUT_PATH = os.path.join(PROJECT_ROOT, 'data', 'trades')  # Directory for predictions
 LOOKBACK = 60  # Number of time steps to look back
 API_URL = os.getenv("DEEPSEEK_API_URL")
@@ -71,28 +71,6 @@ def prepare_sequences(data, lookback=LOOKBACK):
         X.append(scaled_data[i-lookback:i])
         y.append(1 if scaled_data[i, 0] > scaled_data[i-1, 0] else 0)  # 1 for price increase, 0 for decrease
     return np.array(X), np.array(y), scaler
-
-def build_model():
-    """Build and compile LSTM model."""
-    from tensorflow.keras.models import Sequential
-    from tensorflow.keras.layers import LSTM, Dense, Dropout
-    model = Sequential([
-        LSTM(50, return_sequences=True, input_shape=(LOOKBACK, 3)),  # 3 features: close, volume, sentiment
-        Dropout(0.2),
-        LSTM(50),
-        Dropout(0.2),
-        Dense(1, activation='sigmoid')  # Binary output
-    ])
-    model.compile(optimizer='adam', loss='binary_crossentropy', metrics=['accuracy'])
-    return model
-
-def train_model(X, y):
-    """Train the LSTM model."""
-    model = build_model()
-    model.fit(X, y, epochs=10, batch_size=32, validation_split=0.2, verbose=1)
-    os.makedirs(MODELS_PATH, exist_ok=True)
-    model.save(os.path.join(MODELS_PATH, 'phantom_model.h5'))
-    return model
 
 def get_deepseek_opinion(data, local_prediction):
     """Get trade signal opinion from DeepSeek R1 via OpenRouter API."""
@@ -157,15 +135,14 @@ def main():
     data = load_data()
     X, y, scaler = prepare_sequences(data)
     
-    # Train model (or load pre-trained)
+    # Load pre-trained model
     model_path = os.path.join(MODELS_PATH, 'phantom_model.h5')
     if not os.path.exists(model_path):
-        model = train_model(X, y)
-    else:
-        model = load_model(model_path)
+        raise FileNotFoundError(f"No trained model found at {model_path}. Please run src/phantom/trainer.py to train the model first.")
+    model = load_model(model_path)
     
     # Predict using recent data
-    recent_data = data[-LOOKBACK:]  # Assume recent data from S.C.A.L.E.
+    recent_data = data[-LOOKBACK:]
     prediction = predict(model, scaler, recent_data)
     
     # Output results
