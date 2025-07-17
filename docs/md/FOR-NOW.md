@@ -4,7 +4,7 @@ This document outlines the strategic plan to develop a Minimum Viable Product (M
 Purpose
 
 MVP Focus: Demonstrate SHADOW AI’s core ability to predict market movements using live price data, historical datasets, and basic news sentiment analysis.
-Hackathon Alignment: Comply with submission requirements, including a video demo and GitHub repository.
+Hackathon Alignment: Comply with submission requirements, including a video demo and GitHub repository. Must use Notamedia genai API
 Short-Term Goals: Establish a clear, actionable timeline to complete the MVP by July 22, 2025.
 
 2. Hackathon Context
